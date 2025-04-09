@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,92 +17,87 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Plus,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
   FileText,
   MessageSquare,
   Target,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  Sparkles,
-  Download,
-  ExternalLink,
-  File,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeSlug from "rehype-slug";
+import cn from "classnames";
 
-// Flat list of quarters
-const quarters = [
-  "Q4 2023",
-  "Q3 2023",
-  "Q2 2023",
-  "Q1 2023",
-  "Q4 2022",
-  "Q3 2022",
-  "Q2 2022",
-  "Q1 2022",
-];
-
-// Mock PDF URLs for each quarter - in a real app, these would come from your database or API
-const quarterPdfUrls = {
-  "Q4 2023": "/pdfs/acme-earnings-q4-2023.pdf",
-  "Q3 2023": "/pdfs/acme-earnings-q3-2023.pdf",
-  "Q2 2023": "/pdfs/acme-earnings-q2-2023.pdf",
-  "Q1 2023": "/pdfs/acme-earnings-q1-2023.pdf",
-  "Q4 2022": "/pdfs/acme-earnings-q4-2022.pdf",
-  "Q3 2022": "/pdfs/acme-earnings-q3-2022.pdf",
-  "Q2 2022": "/pdfs/acme-earnings-q2-2022.pdf",
-  "Q1 2022": "/pdfs/acme-earnings-q1-2022.pdf",
-};
-
-const mockSections = [
-  { id: "future-guidance", title: "Future Guidance" },
-  { id: "short-term", title: "Short-term Outlook (Next Quarter)" },
-  { id: "full-year", title: "Full-Year Guidance" },
-  { id: "long-term", title: "Long-term Targets" },
-  { id: "capital", title: "Capital Allocation" },
-];
-
-type TabType = "default" | "analysis";
+interface Transcript {
+  url: string;
+  id: number;
+  summary: string;
+  qna: string;
+  date: string;
+  parsed: boolean;
+  symbol: string;
+  date_dt: string;
+  fiscal_period: Record<string, any>;
+  fiscal_quarter: string;
+}
 
 interface TabConfig {
   id: string;
   title: string;
-  type: TabType;
+  type: "default" | "analysis";
   icon?: React.ReactNode;
   prompt?: string;
   showToc?: boolean;
 }
 
+interface Section {
+  id: string;
+  title: string;
+  level: number;
+  uniqueKey: string;
+}
+
 export default function EarningsCall() {
   const params = useParams();
   const symbol = params.symbol || "UNKNOWN";
-  const company = "Acme";
-  const [selectedQuarter, setSelectedQuarter] = useState(quarters[0]);
-  const [activeSection, setActiveSection] = useState(mockSections[0].id);
+
+  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTranscript, setSelectedTranscript] =
+    useState<Transcript | null>(null);
   const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
   const [newTabName, setNewTabName] = useState("");
   const [newTabPrompt, setNewTabPrompt] = useState("");
+  const [activeSection, setActiveSection] = useState("");
 
-  // Get current quarter index for navigation
-  const currentQuarterIndex = quarters.indexOf(selectedQuarter);
+  // Fetch transcript data from the API
+  useEffect(() => {
+    const fetchTranscripts = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8000/concalls?symbol=${symbol}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch transcripts");
 
-  // Get PDF URL for selected quarter
-  const currentPdfUrl =
-    quarterPdfUrls[selectedQuarter as keyof typeof quarterPdfUrls];
+        const data = await response.json();
+        setTranscripts(data);
 
-  // Navigation handlers
-  const handlePreviousQuarter = () => {
-    if (currentQuarterIndex > 0) {
-      setSelectedQuarter(quarters[currentQuarterIndex - 1]);
-    }
-  };
+        // Set the most recent transcript as the default
+        if (data.length > 0) {
+          setSelectedTranscript(data[0]);
+        }
 
-  const handleNextQuarter = () => {
-    if (currentQuarterIndex < quarters.length - 1) {
-      setSelectedQuarter(quarters[currentQuarterIndex + 1]);
-    }
-  };
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching transcripts:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchTranscripts();
+  }, [symbol]);
 
   const defaultTabs: TabConfig[] = [
     {
@@ -118,6 +112,7 @@ export default function EarningsCall() {
       title: "Q&A",
       type: "default",
       icon: <MessageSquare className="h-4 w-4" />,
+      showToc: true,
     },
     {
       id: "guidance",
@@ -129,6 +124,25 @@ export default function EarningsCall() {
 
   const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
   const [activeTab, setActiveTab] = useState("summary");
+
+  // Navigation handlers
+  const handlePreviousQuarter = () => {
+    const currentIndex = transcripts.findIndex(
+      (t) => t.id === selectedTranscript?.id
+    );
+    if (currentIndex > 0) {
+      setSelectedTranscript(transcripts[currentIndex - 1]);
+    }
+  };
+
+  const handleNextQuarter = () => {
+    const currentIndex = transcripts.findIndex(
+      (t) => t.id === selectedTranscript?.id
+    );
+    if (currentIndex < transcripts.length - 1) {
+      setSelectedTranscript(transcripts[currentIndex + 1]);
+    }
+  };
 
   const addCustomTab = () => {
     if (newTabName && newTabPrompt) {
@@ -147,21 +161,77 @@ export default function EarningsCall() {
     }
   };
 
+  // Enhanced extract sections function to handle different markdown formats
+  const extractSections = (markdown: string): Section[] => {
+    // This regex captures headings both at line start AND within list items
+    const headingRegex = /(?:^|\n)\s*(?:\d+\.\s*)?(#{1,6})\s+(.+)$/gm;
+    const sections: Section[] = [];
+    const usedIds = new Set<string>();
+    let match;
+
+    while ((match = headingRegex.exec(markdown)) !== null) {
+      const level = match[1].length;
+      const title = match[2].trim();
+      let id = title
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-");
+
+      let uniqueId = id;
+      let counter = 1;
+
+      while (usedIds.has(uniqueId)) {
+        uniqueId = `${id}-${counter}`;
+        counter++;
+      }
+
+      usedIds.add(uniqueId);
+
+      sections.push({
+        id: uniqueId,
+        title,
+        level,
+        uniqueKey: `section-${sections.length}`,
+      });
+    }
+
+    return sections;
+  };
+
+  // Get sections based on active tab
+  const getActiveSections = () => {
+    if (!selectedTranscript) return [];
+
+    if (activeTab === "summary") {
+      return extractSections(selectedTranscript.summary);
+    } else if (activeTab === "qa" && selectedTranscript.qna) {
+      return extractSections(selectedTranscript.qna);
+    }
+
+    return [];
+  };
+
+  const sections = getActiveSections();
+
   const OnThisPage = () => (
     <div className="pl-6 border-l border-border">
-      <h3 className="text-sm font-medium text-muted-foreground mb-3">
-        On this page
-      </h3>
+      <h3 className="text-base font-semibold mb-3">Overview</h3>
       <div className="space-y-1.5">
-        {mockSections.map((section) => (
+        {sections.map((section) => (
           <a
-            key={section.id}
+            key={section.uniqueKey}
             href={`#${section.id}`}
-            className={`block text-sm ${
+            className={cn(
+              "block text-sm transition-colors duration-200",
               activeSection === section.id
                 ? "text-primary font-medium"
                 : "text-muted-foreground hover:text-foreground"
-            }`}
+            )}
+            style={{
+              // Level 1 has no padding, each subsequent level adds 0.75rem
+              paddingLeft:
+                section.level === 1 ? 0 : `${(section.level - 1) * 0.75}rem`,
+            }}
             onClick={(e) => {
               e.preventDefault();
               setActiveSection(section.id);
@@ -178,15 +248,31 @@ export default function EarningsCall() {
     </div>
   );
 
+  // Custom renderer to ensure IDs are applied to headings even in list items
+  const MarkdownComponents = {
+    h1: ({ node, ...props }) => <h1 id={props.id || ""} {...props} />,
+    h2: ({ node, ...props }) => <h2 id={props.id || ""} {...props} />,
+    h3: ({ node, ...props }) => <h3 id={props.id || ""} {...props} />,
+    h4: ({ node, ...props }) => <h4 id={props.id || ""} {...props} />,
+    h5: ({ node, ...props }) => <h5 id={props.id || ""} {...props} />,
+    h6: ({ node, ...props }) => <h6 id={props.id || ""} {...props} />,
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center">Loading transcript data...</div>;
+  }
+
+  if (!selectedTranscript) {
+    return <div className="p-8 text-center">No transcript data available.</div>;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1600px] mx-auto px-6">
         <div className="py-8">
           <h1 className="text-2xl font-bold mb-2">Earnings Call Analysis</h1>
-
           <p className="text-muted-foreground mb-4">
-            Comprehensive analysis of quarterly earnings calls and financial
-            performance
+            Comprehensive analysis of quarterly earnings calls for {symbol}
           </p>
 
           {/* Top controls outside of card */}
@@ -197,7 +283,7 @@ export default function EarningsCall() {
                 variant="outline"
                 size="icon"
                 onClick={handlePreviousQuarter}
-                disabled={currentQuarterIndex <= 0}
+                disabled={transcripts.indexOf(selectedTranscript) <= 0}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -210,29 +296,29 @@ export default function EarningsCall() {
                 >
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-2" />
-                    <span>{selectedQuarter}</span>
+                    <span>{selectedTranscript.fiscal_quarter}</span>
                   </div>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
 
                 {showQuarterDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-background border rounded-md shadow-md z-10 w-[140px]">
+                  <div className="absolute top-full left-0 mt-1 bg-background border rounded-md shadow-md z-10 w-[180px]">
                     <div className="p-1">
-                      {quarters.map((quarter) => (
+                      {transcripts.map((transcript) => (
                         <Button
-                          key={quarter}
+                          key={transcript.id}
                           variant="ghost"
                           className={`w-full justify-start text-left ${
-                            selectedQuarter === quarter
+                            selectedTranscript.id === transcript.id
                               ? "bg-muted font-medium"
                               : ""
                           }`}
                           onClick={() => {
-                            setSelectedQuarter(quarter);
+                            setSelectedTranscript(transcript);
                             setShowQuarterDropdown(false);
                           }}
                         >
-                          {quarter}
+                          {transcript.fiscal_quarter} ({transcript.date})
                         </Button>
                       ))}
                     </div>
@@ -244,13 +330,20 @@ export default function EarningsCall() {
                 variant="outline"
                 size="icon"
                 onClick={handleNextQuarter}
-                disabled={currentQuarterIndex >= quarters.length - 1}
+                disabled={
+                  transcripts.indexOf(selectedTranscript) >=
+                  transcripts.length - 1
+                }
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
 
               {/* Source PDF Button - open in new tab */}
-              <a href={currentPdfUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                href={selectedTranscript.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Button
                   variant="outline"
                   className="ml-2 flex items-center gap-2 font-medium"
@@ -300,10 +393,6 @@ export default function EarningsCall() {
                         value={newTabPrompt}
                         onChange={(e) => setNewTabPrompt(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Example: "Analyze the management's tone and confidence
-                        when discussing future growth prospects."
-                      </p>
                     </div>
                   </div>
                   <DialogFooter>
@@ -324,7 +413,6 @@ export default function EarningsCall() {
           </div>
 
           <Card className="border rounded-lg shadow-sm">
-            {/* Tabs component */}
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
@@ -350,110 +438,37 @@ export default function EarningsCall() {
                 <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                   <div className="flex p-6">
                     <div className="flex-1">
-                      <div className="space-y-6">
-                        {tab.type === "analysis" ? (
-                          <>
-                            <div className="prose max-w-none">
-                              <h2
-                                id="future-guidance"
-                                className="text-3xl font-bold mb-6"
-                              >
-                                Future Guidance
-                              </h2>
-
-                              <h3
-                                id="short-term"
-                                className="text-xl font-semibold mb-4"
-                              >
-                                Short-term Outlook (Next Quarter)
-                              </h3>
-                              <p>For the upcoming quarter, we expect:</p>
-                              <ul>
-                                <li>Revenue growth of 12-14% year-over-year</li>
-                                <li>Operating margin between 22-24%</li>
-                                <li>EPS in the range of $1.05-$1.12</li>
-                              </ul>
-
-                              <h3
-                                id="full-year"
-                                className="text-xl font-semibold mb-4 mt-8"
-                              >
-                                Full-Year Guidance
-                              </h3>
-                              <p>We are maintaining our full-year guidance:</p>
-                              <ul>
-                                <li>Annual revenue growth of 15-17%</li>
-                                <li>
-                                  Operating margin improvement of 100-150 basis
-                                  points
-                                </li>
-                                <li>
-                                  Free cash flow conversion rate of
-                                  approximately 85%
-                                </li>
-                              </ul>
-
-                              <h3
-                                id="long-term"
-                                className="text-xl font-semibold mb-4 mt-8"
-                              >
-                                Long-term Targets
-                              </h3>
-                              <p>
-                                Our long-term financial targets remain
-                                unchanged:
-                              </p>
-                              <ul>
-                                <li>
-                                  Sustainable revenue growth of 12-15% annually
-                                </li>
-                                <li>Operating margin of 28-30% by 2025</li>
-                                <li>
-                                  Return on invested capital exceeding 20%
-                                </li>
-                              </ul>
-
-                              <h3
-                                id="capital"
-                                className="text-xl font-semibold mb-4 mt-8"
-                              >
-                                Capital Allocation
-                              </h3>
-                              <p>
-                                We plan to continue our balanced approach to
-                                capital allocation:
-                              </p>
-                              <ol>
-                                <li>Reinvesting in the business (60-65%)</li>
-                                <li>Strategic M&A opportunities (20-25%)</li>
-                                <li>
-                                  Shareholder returns via dividends and share
-                                  repurchases (10-15%)
-                                </li>
-                              </ol>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="prose max-w-none">
-                            <h2 className="text-3xl font-bold mb-6">
-                              {tab.title}
-                            </h2>
-                            {tab.id === "qa" && (
-                              <p>Key questions from analysts focused on...</p>
-                            )}
-                            {tab.id === "guidance" && (
-                              <p>
-                                Management expects the following performance
-                                metrics...
-                              </p>
-                            )}
+                      {tab.id === "summary" || tab.id === "qa" ? (
+                        <div className="h-[600px] overflow-y-auto pr-4">
+                          <div className="prose prose-slate dark:prose-invert prose-headings:font-heading prose-headings:scroll-mt-28 max-w-none">
+                            <ReactMarkdown
+                              rehypePlugins={[rehypeSlug]}
+                              components={MarkdownComponents}
+                            >
+                              {tab.id === "summary"
+                                ? selectedTranscript.summary
+                                : selectedTranscript.qna ||
+                                  "No Q&A data available."}
+                            </ReactMarkdown>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="prose max-w-none">
+                          <h2 className="text-3xl font-bold mb-6">
+                            {tab.title}
+                          </h2>
+                          {tab.id === "guidance" && (
+                            <p>
+                              Management expects the following performance
+                              metrics...
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {tab.showToc && (
-                      <div className="ml-8 sticky top-4 self-start hidden md:block">
+                    {tab.showToc && sections.length > 0 && (
+                      <div className="ml-8 sticky top-4 self-start hidden md:block w-64">
                         <OnThisPage />
                       </div>
                     )}
