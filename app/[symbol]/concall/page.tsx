@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,9 @@ interface TabConfig {
 }
 
 export default function EarningsCall() {
+  const params = useParams();
+  const symbol = params.symbol || "UNKNOWN";
+  const company = "Acme";
   const [selectedQuarter, setSelectedQuarter] = useState(quarters[0]);
   const [activeSection, setActiveSection] = useState(mockSections[0].id);
   const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
@@ -179,6 +183,7 @@ export default function EarningsCall() {
       <div className="max-w-[1600px] mx-auto px-6">
         <div className="py-8">
           <h1 className="text-2xl font-bold mb-2">Earnings Call Analysis</h1>
+
           <p className="text-muted-foreground mb-4">
             Comprehensive analysis of quarterly earnings calls and financial
             performance

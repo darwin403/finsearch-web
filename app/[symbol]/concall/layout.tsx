@@ -1,5 +1,6 @@
 // app/layout.tsx
 "use client";
+import React from "react";
 
 import {
   useState,
@@ -135,7 +136,7 @@ export default function RootLayout({
     setSearchQuery(""); // Optional: clear search after selection
     // Navigate to the company page using its symbol
     if (company.symbol) {
-      router.push(`/${company.symbol}`);
+      router.push(`/${company.symbol}/concall`);
     }
   };
 
