@@ -8,16 +8,17 @@ import {
   KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // Import useRouter
+import { algoliasearch } from "algoliasearch"; // Import Algolia client
 import { Search } from "lucide-react";
 
-// Mock company data for search functionality
-const COMPANIES = [
-  { id: "1", name: "Reliance Industries", sector: "Energy" },
-  { id: "2", name: "Tata Consultancy Services", sector: "IT" },
-  { id: "3", name: "HDFC Bank", sector: "Banking" },
-  { id: "4", name: "Infosys", sector: "IT" },
-  { id: "5", name: "ICICI Bank", sector: "Banking" },
-];
+// Algolia configuration
+const ALGOLIA_APP_ID = "WP3HSGTPKW";
+const ALGOLIA_SEARCH_API_KEY = "9bc27007a715e558c8331eaddfdd155e";
+// TODO: Replace with your actual index name
+const ALGOLIA_INDEX_NAME = "finsearch_companies"; // Replace with your index name
+
+const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 
 export default function RootLayout({
   children,
@@ -26,12 +27,14 @@ export default function RootLayout({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
-  const [filteredCompanies, setFilteredCompanies] = useState(COMPANIES);
+  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]); // State for Algolia results
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeSection, setActiveSection] = useState("overview");
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const router = useRouter(); // Initialize router
 
   // Section references for scrolling
   const sections = [
@@ -42,19 +45,37 @@ export default function RootLayout({
     { id: "earnings-calls", title: "Earnings Calls" },
   ];
 
-  // Filter companies based on search query
+  // Fetch companies from Algolia based on search query
   useEffect(() => {
-    if (searchQuery) {
-      const filtered = COMPANIES.filter(
-        (company) =>
-          company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          company.sector.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredCompanies(filtered);
-      setShowResults(true);
-      setSelectedIndex(0); // Reset selection to first item when query changes
+    if (searchQuery.trim() !== "") {
+      searchClient
+        .search({
+          requests: [
+            {
+              indexName: ALGOLIA_INDEX_NAME,
+              query: searchQuery,
+              hitsPerPage: 10, // Limit results - Moved out of params
+            }, // Removed extra comma and brace from lines 55 & 56
+          ],
+        })
+        .then(({ results }: { results: any[] }) => {
+          // Add type annotation for results
+          if (results && results[0] && results[0].hits) {
+            setFilteredCompanies(results[0].hits); // Access hits correctly
+            setShowResults(true);
+            setSelectedIndex(0); // Reset selection
+          } else {
+            setFilteredCompanies([]);
+            setShowResults(true); // Keep dropdown open to show "No results"
+          }
+        })
+        .catch((err) => {
+          console.error("Algolia search error:", err);
+          setFilteredCompanies([]);
+          setShowResults(true); // Show error or no results
+        });
     } else {
-      setFilteredCompanies(COMPANIES);
+      setFilteredCompanies([]);
       setShowResults(false);
     }
   }, [searchQuery]);
@@ -107,12 +128,15 @@ export default function RootLayout({
   };
 
   // Handle company selection
-  const handleCompanySelect = (company: (typeof COMPANIES)[0]) => {
+  const handleCompanySelect = (company: any) => {
+    // Accept Algolia hit object
     console.log(`Selected company: ${company.name}`);
     setShowResults(false);
     setSearchQuery(""); // Optional: clear search after selection
-    // Add navigation logic here
-    // router.push(`/company/${company.id}`)
+    // Navigate to the company page using its symbol
+    if (company.symbol) {
+      router.push(`/${company.symbol}`);
+    }
   };
 
   // Scroll to section
@@ -180,7 +204,7 @@ export default function RootLayout({
                 ) : (
                   filteredCompanies.map((company, index) => (
                     <div
-                      key={company.id}
+                      key={company.objectID} // Use objectID from Algolia
                       className={`px-4 py-2 cursor-pointer ${
                         index === selectedIndex
                           ? "bg-gray-100"
@@ -189,9 +213,12 @@ export default function RootLayout({
                       onClick={() => handleCompanySelect(company)}
                       onMouseEnter={() => setSelectedIndex(index)}
                     >
-                      <div className="font-medium">{company.name}</div>
+                      {/* Display symbol as title and name as description */}
+                      <div className="font-medium">
+                        {company.symbol || "N/A"}
+                      </div>
                       <div className="text-xs text-gray-500">
-                        {company.sector}
+                        {company.name || "N/A"}
                       </div>
                     </div>
                   ))
