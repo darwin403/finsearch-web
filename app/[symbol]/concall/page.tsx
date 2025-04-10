@@ -29,6 +29,8 @@ import {
   ArrowDown, // Added for guidance change
   Minus, // Added for guidance change
   Plus, // Added for guidance change
+  Edit, // Added
+  Trash2, // Added
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
@@ -78,6 +80,19 @@ export default function EarningsCall() {
   const [newTabName, setNewTabName] = useState("");
   const [newTabPrompt, setNewTabPrompt] = useState("");
   const [activeSection, setActiveSection] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false); // Control create dialog
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // Control edit dialog
+  const [editingTabId, setEditingTabId] = useState<string | null>(null); // ID of tab being edited
+  const [editTabName, setEditTabName] = useState(""); // Temp state for editing name
+  const [editTabPrompt, setEditTabPrompt] = useState(""); // Temp state for editing prompt
+
+  // State to store analysis results for custom tabs
+  const [analysisResults, setAnalysisResults] = useState<
+    Record<
+      string,
+      { content: string; isLoading: boolean; error: string | null }
+    >
+  >({});
 
   // Fetch transcript data from the API
   useEffect(() => {
@@ -94,6 +109,8 @@ export default function EarningsCall() {
         // Set the most recent transcript as the default
         if (data.length > 0) {
           setSelectedTranscript(data[0]);
+          // Reset analysis results when transcripts load initially or symbol changes
+          setAnalysisResults({});
         }
 
         setLoading(false);
@@ -133,6 +150,68 @@ export default function EarningsCall() {
   const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
   const [activeTab, setActiveTab] = useState("summary"); // Default tab
 
+  // --- Local Storage Logic --- Moved Here ---
+
+  const getLocalStorageKey = (sym: string) => `customAnalysisTabs_${sym}`;
+
+  // Load custom tabs from local storage
+  useEffect(() => {
+    if (typeof window !== "undefined" && symbol !== "UNKNOWN") {
+      const key = getLocalStorageKey(symbol);
+      try {
+        const storedTabsJson = localStorage.getItem(key);
+        if (storedTabsJson) {
+          const loadedCustomTabs: TabConfig[] = JSON.parse(storedTabsJson);
+          // Filter out any potential duplicates just in case and ensure type is analysis
+          const validCustomTabs = loadedCustomTabs.filter(
+            (tab, index, self) =>
+              tab.type === "analysis" &&
+              index === self.findIndex((t) => t.id === tab.id)
+          );
+          // Combine default tabs with valid loaded custom tabs, prevent duplicates
+          // Use functional update for setTabs based on defaultTabs
+          setTabs((prevDefaultTabs) => [
+            ...prevDefaultTabs,
+            ...validCustomTabs.filter(
+              (ct) => !prevDefaultTabs.some((dt) => dt.id === ct.id)
+            ),
+          ]);
+        } else {
+          // No stored tabs, just use defaults (already set by useState)
+          // setTabs(defaultTabs); // No need to set again if useState initializes correctly
+        }
+      } catch (error) {
+        console.error("Failed to load custom tabs from local storage:", error);
+        // setTabs(defaultTabs); // Fallback handled by initial useState
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]); // Reload when symbol changes
+
+  // Save custom tabs to local storage whenever tabs state changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && symbol !== "UNKNOWN") {
+      const key = getLocalStorageKey(symbol);
+      // Filter out default tabs before saving
+      const customTabsToSave = tabs.filter(
+        (tab) =>
+          tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
+      );
+      try {
+        // Only save if there are custom tabs to prevent overwriting with empty array unnecessarily
+        if (customTabsToSave.length > 0) {
+          localStorage.setItem(key, JSON.stringify(customTabsToSave));
+        } else {
+          // If no custom tabs exist, remove the key from local storage
+          localStorage.removeItem(key);
+        }
+      } catch (error) {
+        console.error("Failed to save custom tabs to local storage:", error);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabs, symbol]); // Save whenever tabs or symbol changes
+
   // Effect to sync URL hash with activeTab state
   useEffect(() => {
     const currentHash = window.location.hash.substring(1); // Get hash without '#'
@@ -161,6 +240,8 @@ export default function EarningsCall() {
     );
     if (currentIndex > 0) {
       setSelectedTranscript(transcripts[currentIndex - 1]);
+      // Reset analysis results when transcript changes
+      setAnalysisResults({});
     }
   };
 
@@ -170,24 +251,157 @@ export default function EarningsCall() {
     );
     if (currentIndex < transcripts.length - 1) {
       setSelectedTranscript(transcripts[currentIndex + 1]);
+      // Reset analysis results when transcript changes
+      setAnalysisResults({});
     }
   };
 
+  // Function to fetch analysis from the streaming endpoint
+  const fetchAnalysis = (tabId: string, url: string, prompt: string) => {
+    setAnalysisResults((prev) => ({
+      ...prev,
+      [tabId]: { content: "", isLoading: true, error: null },
+    }));
+
+    const eventSourceUrl = `http://localhost:8000/process-transcript?url=${encodeURIComponent(
+      url
+    )}&system_prompt=${encodeURIComponent(prompt)}`;
+    const eventSource = new EventSource(eventSourceUrl);
+
+    eventSource.onmessage = (event) => {
+      // Assuming the server sends JSON with a 'text' field, adjust if it's plain text
+      try {
+        // Handle potential JSON parsing if needed, or just use data directly if plain text
+        const dataChunk = event.data; // Adjust if data is structured e.g. JSON.parse(event.data).text;
+        setAnalysisResults((prev) => ({
+          ...prev,
+          [tabId]: {
+            ...prev[tabId],
+            content: (prev[tabId]?.content || "") + dataChunk,
+            isLoading: true, // Keep loading until stream ends
+          },
+        }));
+      } catch (e) {
+        console.error("Error processing stream data:", e);
+        // Optionally handle malformed data
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      // Log the full event object for more details in the console
+      console.error("EventSource failed. Event:", error);
+      setAnalysisResults((prev) => ({
+        ...prev,
+        [tabId]: {
+          ...prev[tabId],
+          isLoading: false,
+          error:
+            "Failed to connect to analysis service. Please ensure it's running and accessible.",
+        },
+      }));
+      eventSource.close(); // Close connection on error
+    };
+
+    // Note: The stream might close without an explicit 'end' event.
+    // The 'error' handler often catches the closure. If the API sends a specific
+    // 'end' message, handle it here to set isLoading to false.
+    // For now, we assume the error handler or component unmount handles closure.
+    // We might need a way to signal completion from the server if onerror isn't reliable for this.
+    // For simplicity, let's assume the server closes the connection when done, triggering onerror or simply stopping messages.
+    // We'll set isLoading to false definitively when the component unmounts or the tab/transcript changes.
+
+    // Return the eventSource instance so it can be closed if needed (e.g., on unmount or tab change)
+    return eventSource;
+  };
+
+  // --- Modified addCustomTab ---
   const addCustomTab = () => {
     if (newTabName && newTabPrompt) {
-      setTabs([
-        ...tabs,
-        {
-          id: Date.now().toString(),
-          title: newTabName,
-          type: "analysis",
-          prompt: newTabPrompt,
-          showToc: true,
-        },
-      ]);
+      const newTabId = Date.now().toString();
+      const newTab: TabConfig = {
+        id: newTabId,
+        title: newTabName,
+        type: "analysis",
+        prompt: newTabPrompt,
+        showToc: true,
+      };
+
+      setTabs((prevTabs) => [...prevTabs, newTab]); // Use functional update
+      setActiveTab(newTabId);
       setNewTabName("");
       setNewTabPrompt("");
+      setIsCreateDialogOpen(false); // Close the dialog - THIS LINE WAS ALREADY PRESENT, ensuring it stays
+
+      if (selectedTranscript?.url) {
+        fetchAnalysis(newTabId, selectedTranscript.url, newTab.prompt!);
+      } else {
+        setAnalysisResults((prev) => ({
+          ...prev,
+          [newTabId]: {
+            content: "",
+            isLoading: false,
+            error: "Cannot fetch analysis: No transcript selected.",
+          },
+        }));
+      }
     }
+  };
+
+  // --- Edit/Delete Logic ---
+
+  const openEditDialog = (tabId: string) => {
+    const tabToEdit = tabs.find((tab) => tab.id === tabId);
+    if (tabToEdit && tabToEdit.type === "analysis") {
+      setEditingTabId(tabId);
+      setEditTabName(tabToEdit.title);
+      setEditTabPrompt(tabToEdit.prompt || "");
+      setIsEditDialogOpen(true);
+    }
+  };
+
+  const handleUpdateTab = () => {
+    if (!editingTabId || !editTabName || !editTabPrompt) return;
+
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) =>
+        tab.id === editingTabId
+          ? { ...tab, title: editTabName, prompt: editTabPrompt }
+          : tab
+      )
+    );
+
+    // If the currently active tab was edited, re-fetch analysis
+    if (activeTab === editingTabId && selectedTranscript?.url) {
+      // Clear previous result before re-fetching
+      setAnalysisResults((prev) => {
+        const newState = { ...prev };
+        delete newState[editingTabId];
+        return newState;
+      });
+      fetchAnalysis(editingTabId, selectedTranscript.url, editTabPrompt);
+    }
+
+    setIsEditDialogOpen(false);
+    setEditingTabId(null);
+    setEditTabName("");
+    setEditTabPrompt("");
+  };
+
+  const handleDeleteTab = (tabId: string) => {
+    setTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
+    // Clean up analysis results for the deleted tab
+    setAnalysisResults((prev) => {
+      const newState = { ...prev };
+      delete newState[tabId];
+      return newState;
+    });
+    // If the deleted tab was active, switch to the summary tab
+    if (activeTab === tabId) {
+      setActiveTab("summary");
+      router.replace("#summary", { scroll: false });
+    }
+    setIsEditDialogOpen(false); // Close edit dialog if open for this tab
+    setEditingTabId(null);
   };
 
   // Enhanced extract sections function to handle different markdown formats
@@ -246,6 +460,42 @@ export default function EarningsCall() {
   };
 
   const sections = getActiveSections();
+
+  // Effect to fetch analysis when active tab changes to a custom analysis tab
+  // or when the selected transcript changes while a custom tab is active.
+  useEffect(() => {
+    const activeTabData = tabs.find((tab) => tab.id === activeTab);
+
+    if (
+      activeTabData?.type === "analysis" &&
+      activeTabData.prompt &&
+      selectedTranscript?.url &&
+      !analysisResults[activeTab] // Only fetch if not already fetched/fetching for this tab/transcript combo
+    ) {
+      const eventSource = fetchAnalysis(
+        activeTab,
+        selectedTranscript.url,
+        activeTabData.prompt
+      );
+
+      // Cleanup function to close EventSource when tab changes or component unmounts
+      return () => {
+        eventSource?.close();
+        // Also explicitly set loading to false for the tab being navigated away from
+        // This prevents a loading state sticking if the stream didn't finish/error correctly
+        setAnalysisResults((prev) => {
+          if (prev[activeTab] && prev[activeTab].isLoading) {
+            return {
+              ...prev,
+              [activeTab]: { ...prev[activeTab], isLoading: false },
+            };
+          }
+          return prev;
+        });
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedTranscript, tabs]); // Dependencies: analysisResults removed to avoid re-triggering during stream
 
   // Adjusted "On This Page" component styling
   const OnThisPage = () => (
@@ -398,7 +648,9 @@ export default function EarningsCall() {
 
   return (
     <>
-      <div>
+      <div className="w-full">
+        {" "}
+        {/* Ensure full width */}
         {/* Keep padding */}
         {/* Adjusted heading size and spacing */}
         <h1 className="text-3xl font-semibold mb-1 text-slate-900 dark:text-slate-100">
@@ -413,12 +665,12 @@ export default function EarningsCall() {
           </span>
         </p>
         {/* Top controls outside of card */}
-        <div className="flex flex-wrap items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4">
           {" "}
-          {/* Increased bottom margin */}
-          {/* Quarter selector with navigation */}
+          {/* Added gap-y-4 for wrapping */}
+          {/* Left side controls: Quarter Nav + PDF */}
           <div className="flex items-center space-x-2">
-            {/* Using consistent shadcn button styling */}
+            {/* Quarter Nav Buttons */}
             <Button
               variant="outline"
               size="icon"
@@ -429,23 +681,20 @@ export default function EarningsCall() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
+            {/* Quarter Dropdown */}
             <div className="relative">
-              {/* Adjusted quarter selector button styling */}
               <Button
                 variant="outline"
-                className="flex items-center gap-2 font-medium w-[150px] justify-between border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" // Adjusted width and colors
+                className="flex items-center gap-2 font-medium w-[150px] justify-between border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setShowQuarterDropdown(!showQuarterDropdown)}
               >
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />{" "}
-                  {/* Icon color */}
+                  <Calendar className="h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />
                   <span>{selectedTranscript.fiscal_quarter}</span>
                 </div>
-                <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />{" "}
-                {/* Icon color */}
+                <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               </Button>
-
-              {showQuarterDropdown && ( // Adjusted dropdown styling
+              {showQuarterDropdown && (
                 <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg z-10 w-[180px]">
                   <div className="p-1">
                     {transcripts.map((transcript) => (
@@ -453,14 +702,14 @@ export default function EarningsCall() {
                         key={transcript.id}
                         variant="ghost"
                         className={`w-full justify-start text-left text-sm px-2 py-1.5 rounded-sm ${
-                          // Adjusted padding and text size
                           selectedTranscript.id === transcript.id
-                            ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100" // Adjusted selected colors
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50" // Adjusted hover colors
+                            ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                         }`}
                         onClick={() => {
                           setSelectedTranscript(transcript);
                           setShowQuarterDropdown(false);
+                          setAnalysisResults({});
                         }}
                       >
                         {transcript.fiscal_quarter} ({transcript.date})
@@ -471,7 +720,7 @@ export default function EarningsCall() {
               )}
             </div>
 
-            {/* Using consistent shadcn button styling */}
+            {/* Next Quarter Button */}
             <Button
               variant="outline"
               size="icon"
@@ -485,111 +734,107 @@ export default function EarningsCall() {
               <ChevronRight className="h-4 w-4" />
             </Button>
 
-            {/* Source PDF Button - open in new tab */}
+            {/* PDF Button */}
             <a
               href={selectedTranscript.url}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {/* Adjusted PDF button styling */}
               <Button
                 variant="outline"
                 className="ml-2 flex items-center gap-2 font-medium border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />{" "}
-                {/* Icon color */}
+                <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                 Transcript PDF
               </Button>
             </a>
           </div>
-          <div className="flex items-center gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                {/* Adjusted AI button styling */}
-                <Button
-                  size="sm"
-                  className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
-                >
-                  <Sparkles className="h-4 w-4" /> {/* Icon color inherited */}
-                  AI Custom Analysis
-                </Button>
-              </DialogTrigger>
-              {/* Adjusted Dialog styling */}
-              <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                <DialogHeader>
-                  <DialogTitle className="text-slate-900 dark:text-slate-100">
-                    Create Custom Analysis
-                  </DialogTitle>
-                  <DialogDescription className="text-slate-600 dark:text-slate-400">
-                    Create a custom tab with AI analysis of this earnings
-                    transcript.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="name"
-                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      {" "}
-                      {/* Label color */}
-                      Tab Name
-                    </label>
-                    {/* Adjusted Input styling */}
-                    <Input
-                      id="name"
-                      placeholder="E.g., Management Tone"
-                      value={newTabName}
-                      onChange={(e) => setNewTabName(e.target.value)}
-                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="prompt"
-                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                    >
-                      {" "}
-                      {/* Label color */}
-                      Analysis Prompt
-                    </label>
-                    {/* Adjusted Textarea styling */}
-                    <Textarea
-                      id="prompt"
-                      placeholder="Describe what you'd like to analyze from this earnings transcript..."
-                      rows={5}
-                      value={newTabPrompt}
-                      onChange={(e) => setNewTabPrompt(e.target.value)}
-                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
-                    />
-                  </div>
+          {/* Right side control: AI Analysis Button (Moved here as direct child) */}
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Custom Analysis
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-slate-900 dark:text-slate-100">
+                  Create Custom Analysis
+                </DialogTitle>
+                <DialogDescription className="text-slate-600 dark:text-slate-400">
+                  Create a custom tab with AI analysis of this earnings
+                  transcript.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {/* Tab Name Input */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="name"
+                    className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                  >
+                    Tab Name
+                  </label>
+                  <Input
+                    id="name"
+                    placeholder="E.g., Management Tone"
+                    value={newTabName}
+                    onChange={(e) => setNewTabName(e.target.value)}
+                    className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+                  />
                 </div>
-                <DialogFooter>
-                  {/* Adjusted Dialog Footer Buttons */}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setNewTabName("");
-                      setNewTabPrompt("");
-                      // Consider closing the dialog here if needed
-                    }}
-                    className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                {/* Prompt Textarea */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="prompt"
+                    className="text-sm font-medium text-slate-700 dark:text-slate-300"
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={addCustomTab}
-                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
-                  >
-                    Create
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+                    Analysis Prompt
+                  </label>
+                  <Textarea
+                    id="prompt"
+                    placeholder="Describe what you'd like to analyze from this earnings transcript..."
+                    rows={5}
+                    value={newTabPrompt}
+                    onChange={(e) => setNewTabPrompt(e.target.value)}
+                    className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setNewTabName("");
+                    setNewTabPrompt("");
+                  }}
+                  className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={addCustomTab}
+                  disabled={!newTabName || !newTabPrompt}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
+                >
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         {/* Adjusted Card styling */}
-        <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950">
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
+          {" "}
+          {/* Added min-h */}
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange} // Use the new handler
@@ -601,21 +846,44 @@ export default function EarningsCall() {
               <TabsList className="h-11 bg-transparent justify-start px-4">
                 {" "}
                 {/* Slightly taller */}
+                {/* Tabs List with Edit Buttons */}
                 {tabs.map((tab) => (
-                  <TabsTrigger
+                  <div
                     key={tab.id}
-                    value={tab.id}
-                    // Adjusted TabsTrigger styling for better active state and colors
-                    className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                    className="relative flex items-center group pr-1"
                   >
-                    {/* Ensure icon color matches text color */}
-                    {tab.icon && (
-                      <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
-                        {tab.icon}
-                      </span>
-                    )}
-                    {tab.title}
-                  </TabsTrigger>
+                    {" "}
+                    {/* Wrapper + padding for button */}
+                    <TabsTrigger
+                      value={tab.id}
+                      className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                      // Removed pr-7, handled by wrapper padding now
+                    >
+                      {tab.icon && (
+                        <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
+                          {tab.icon}
+                        </span>
+                      )}
+                      {tab.title}
+                    </TabsTrigger>
+                    {/* Edit button only for custom analysis tabs */}
+                    {tab.type === "analysis" &&
+                      !defaultTabs.some((dt) => dt.id === tab.id) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20" // Adjusted position, added focus visibility
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent tab activation
+                            openEditDialog(tab.id);
+                          }}
+                          aria-label={`Edit tab ${tab.title}`}
+                        >
+                          <Edit className="h-3.5 w-3.5" />{" "}
+                          {/* Slightly larger icon */}
+                        </Button>
+                      )}
+                  </div>
                 ))}
               </TabsList>
             </div>
@@ -662,15 +930,31 @@ export default function EarningsCall() {
                       </div>
                     ) : (
                       // Custom analysis tab content
-                      <div className="prose prose-slate dark:prose-invert max-w-none">
-                        <h2 className="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-200">
-                          {tab.title}
-                        </h2>
-                        <p className="text-slate-600 dark:text-slate-400">
-                          AI-generated analysis based on your prompt will appear
-                          here.
-                        </p>
-                        {/* Placeholder for AI analysis */}
+                      <div className="pr-6">
+                        {analysisResults[tab.id]?.isLoading && (
+                          <div className="text-center py-4 text-slate-500 dark:text-slate-400">
+                            Generating analysis...{" "}
+                            <Sparkles className="h-4 w-4 inline animate-pulse" />
+                          </div>
+                        )}
+                        {analysisResults[tab.id]?.error && (
+                          <div className="text-center py-4 text-red-600 dark:text-red-400">
+                            Error: {analysisResults[tab.id]?.error}
+                          </div>
+                        )}
+                        {!analysisResults[tab.id]?.isLoading &&
+                          !analysisResults[tab.id]?.error && (
+                            <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeSlug]}
+                                components={MarkdownComponents} // Reuse existing components
+                              >
+                                {analysisResults[tab.id]?.content ||
+                                  "No analysis generated yet."}
+                              </ReactMarkdown>
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>
@@ -687,6 +971,84 @@ export default function EarningsCall() {
           </Tabs>
         </Card>
       </div>
-    </>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-slate-100">
+              Edit Analysis Tab
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
+              Update the name and prompt for this custom analysis tab.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="edit-name"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Tab Name
+              </label>
+              <Input
+                id="edit-name"
+                placeholder="E.g., Management Tone"
+                value={editTabName}
+                onChange={(e) => setEditTabName(e.target.value)}
+                className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="edit-prompt"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Analysis Prompt
+              </label>
+              <Textarea
+                id="edit-prompt"
+                placeholder="Describe what you'd like to analyze..."
+                rows={5}
+                value={editTabPrompt}
+                onChange={(e) => setEditTabPrompt(e.target.value)}
+                className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            {" "}
+            {/* Adjust footer layout */}
+            {/* Delete Button */}
+            <Button
+              variant="destructive"
+              onClick={() => editingTabId && handleDeleteTab(editingTabId)}
+              className="mr-auto" // Push other buttons to the right
+              disabled={!editingTabId} // Disable if no tab is being edited
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+            {/* Cancel and Save Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)} // Just close on cancel
+                className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateTab}
+                disabled={!editTabName || !editTabPrompt} // Disable if fields are empty
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </> // Closing the main fragment tag
   );
 }
