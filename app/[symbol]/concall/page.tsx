@@ -691,7 +691,7 @@ export default function EarningsCall() {
                 <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               </Button>
               {showQuarterDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg z-10 w-[180px]">
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg z-20 w-[180px]">
                   <div className="p-1">
                     {transcripts.map((transcript) => (
                       <Button
