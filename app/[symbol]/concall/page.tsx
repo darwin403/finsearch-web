@@ -25,9 +25,14 @@ import {
   MessageSquare,
   Target,
   ChevronDown,
+  ArrowUp, // Added for guidance change
+  ArrowDown, // Added for guidance change
+  Minus, // Added for guidance change
+  Plus, // Added for guidance change
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
+import remarkGfm from "remark-gfm"; // Import remark-gfm
 import cn from "classnames";
 
 interface Transcript {
@@ -41,6 +46,7 @@ interface Transcript {
   date_dt: string;
   fiscal_period: Record<string, any>;
   fiscal_quarter: string;
+  guidance_changes?: string; // Added guidance_changes field
 }
 
 interface TabConfig {
@@ -119,6 +125,7 @@ export default function EarningsCall() {
       title: "Guidance",
       type: "default",
       icon: <Target className="h-4 w-4" />,
+      // Removed showToc: true for guidance
     },
   ];
 
@@ -206,6 +213,11 @@ export default function EarningsCall() {
       return extractSections(selectedTranscript.summary);
     } else if (activeTab === "qa" && selectedTranscript.qna) {
       return extractSections(selectedTranscript.qna);
+    } else if (
+      activeTab === "guidance" &&
+      selectedTranscript.guidance_changes
+    ) {
+      return extractSections(selectedTranscript.guidance_changes);
     }
 
     return [];
@@ -249,13 +261,95 @@ export default function EarningsCall() {
   );
 
   // Custom renderer to ensure IDs are applied to headings even in list items
-  const MarkdownComponents = {
-    h1: ({ node, ...props }) => <h1 id={props.id || ""} {...props} />,
-    h2: ({ node, ...props }) => <h2 id={props.id || ""} {...props} />,
-    h3: ({ node, ...props }) => <h3 id={props.id || ""} {...props} />,
-    h4: ({ node, ...props }) => <h4 id={props.id || ""} {...props} />,
-    h5: ({ node, ...props }) => <h5 id={props.id || ""} {...props} />,
-    h6: ({ node, ...props }) => <h6 id={props.id || ""} {...props} />,
+  // Custom renderer to ensure IDs are applied to headings and add icons to table cells
+  // Define types for custom renderers to satisfy TypeScript
+  type HeadingProps = React.ComponentPropsWithoutRef<"h1"> & { node?: any }; // Use 'any' for node if specific type is complex/unknown
+  type TdProps = React.ComponentPropsWithoutRef<"td"> & { node?: any };
+
+  const MarkdownComponents: { [key: string]: React.ElementType } = {
+    h1: ({ node, ...props }: HeadingProps) => (
+      <h1 id={props.id || ""} {...props} />
+    ),
+    h2: ({ node, ...props }: HeadingProps) => (
+      <h2 id={props.id || ""} {...props} />
+    ),
+    h3: ({ node, ...props }: HeadingProps) => (
+      <h3 id={props.id || ""} {...props} />
+    ),
+    h4: ({ node, ...props }: HeadingProps) => (
+      <h4 id={props.id || ""} {...props} />
+    ),
+    h5: ({ node, ...props }: HeadingProps) => (
+      <h5 id={props.id || ""} {...props} />
+    ),
+    h6: ({ node, ...props }: HeadingProps) => (
+      <h6 id={props.id || ""} {...props} />
+    ),
+    // Custom renderer for table cells (td) with explicit types
+    td: ({ node, children, ...props }: TdProps) => {
+      // Extract text content from children
+      let textContent = "";
+      if (children && Array.isArray(children)) {
+        textContent = children
+          .map((child) => {
+            if (typeof child === "string") {
+              return child;
+            }
+            // Handle nested elements if necessary, e.g., links or emphasis
+            if (
+              typeof child === "object" &&
+              child !== null &&
+              "props" in child &&
+              child.props.children
+            ) {
+              // Basic handling for simple nested text
+              return String(child.props.children);
+            }
+            return "";
+          })
+          .join("")
+          .toLowerCase()
+          .trim();
+      } else if (typeof children === "string") {
+        textContent = children.toLowerCase().trim();
+      }
+
+      let icon = null;
+      let textColor = "";
+
+      switch (textContent) {
+        case "raised":
+          icon = (
+            <ArrowUp className="h-4 w-4 mr-1 inline-block text-green-600" />
+          );
+          textColor = "text-green-700 dark:text-green-400";
+          break;
+        case "lowered":
+          icon = (
+            <ArrowDown className="h-4 w-4 mr-1 inline-block text-red-600" />
+          );
+          textColor = "text-red-700 dark:text-red-400";
+          break;
+        case "maintained":
+          icon = <Minus className="h-4 w-4 mr-1 inline-block text-gray-500" />;
+          textColor = "text-gray-600 dark:text-gray-400";
+          break;
+        case "new":
+          icon = <Plus className="h-4 w-4 mr-1 inline-block text-blue-600" />;
+          textColor = "text-blue-700 dark:text-blue-400";
+          break;
+        default:
+          // No icon for other content
+          break;
+      }
+
+      return (
+        <td {...props} className={cn(props.className, textColor)}>
+          {icon}
+          {children}
+        </td>
+      );
+    },
   };
 
   if (loading) {
@@ -438,31 +532,44 @@ export default function EarningsCall() {
                 <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                   <div className="flex p-6">
                     <div className="flex-1">
-                      {tab.id === "summary" || tab.id === "qa" ? (
+                      {tab.id === "summary" ||
+                      tab.id === "qa" ||
+                      tab.id === "guidance" ? (
                         <div className="h-[600px] overflow-y-auto pr-4">
+                          {/* Add the note here for the guidance tab */}
+                          {tab.id === "guidance" && (
+                            <p className="text-sm text-muted-foreground mb-4 border-l-4 border-yellow-500 pl-3 py-1 bg-yellow-50 dark:bg-yellow-900/20">
+                              <b>Note:</b> The "Previous Guidance" column
+                              currently does not reflect data from previous
+                              quarters earnings transcripts. This feature will
+                              be added in a future version.
+                            </p>
+                          )}
                           <div className="prose prose-slate dark:prose-invert prose-headings:font-heading prose-headings:scroll-mt-28 max-w-none">
                             <ReactMarkdown
+                              remarkPlugins={[remarkGfm]} // Add remarkGfm for table support
                               rehypePlugins={[rehypeSlug]}
                               components={MarkdownComponents}
                             >
                               {tab.id === "summary"
                                 ? selectedTranscript.summary
-                                : selectedTranscript.qna ||
-                                  "No Q&A data available."}
+                                : tab.id === "qa"
+                                ? selectedTranscript.qna ||
+                                  "No Q&A data available."
+                                : selectedTranscript.guidance_changes ||
+                                  "No Guidance data available."}
                             </ReactMarkdown>
                           </div>
                         </div>
                       ) : (
+                        // Handle custom analysis tabs or other types if needed
                         <div className="prose max-w-none">
+                          {/* This part might be for custom AI tabs now */}
                           <h2 className="text-3xl font-bold mb-6">
                             {tab.title}
                           </h2>
-                          {tab.id === "guidance" && (
-                            <p>
-                              Management expects the following performance
-                              metrics...
-                            </p>
-                          )}
+                          {/* Placeholder for potential custom tab content */}
+                          <p>Analysis content for {tab.title} goes here.</p>
                         </div>
                       )}
                     </div>
