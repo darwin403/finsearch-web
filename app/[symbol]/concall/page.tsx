@@ -31,6 +31,7 @@ import {
   Plus, // Added for guidance change
   Edit, // Added
   Trash2, // Added
+  RefreshCcw, // Added for regenerate button
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
@@ -263,54 +264,49 @@ export default function EarningsCall() {
       [tabId]: { content: "", isLoading: true, error: null },
     }));
 
-    const eventSourceUrl = `http://localhost:8000/process-transcript?url=${encodeURIComponent(
+    const eventSourceUrl = `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
       url
     )}&system_prompt=${encodeURIComponent(prompt)}`;
-    const eventSource = new EventSource(eventSourceUrl);
 
-    eventSource.onmessage = (event) => {
-      // Assuming the server sends JSON with a 'text' field, adjust if it's plain text
-      try {
-        // Handle potential JSON parsing if needed, or just use data directly if plain text
-        const dataChunk = event.data; // Adjust if data is structured e.g. JSON.parse(event.data).text;
-        setAnalysisResults((prev) => ({
-          ...prev,
-          [tabId]: {
-            ...prev[tabId],
-            content: (prev[tabId]?.content || "") + dataChunk,
-            isLoading: true, // Keep loading until stream ends
-          },
-        }));
-      } catch (e) {
-        console.error("Error processing stream data:", e);
-        // Optionally handle malformed data
-      }
-    };
+    // const eventSourceUrl = `http://localhost:8000/events`;
 
-    eventSource.onerror = (error) => {
-      // Log the full event object for more details in the console
-      console.error("EventSource failed. Event:", error);
+    let eventSource: EventSource | null = null;
+
+    try {
+      eventSource = new EventSource(eventSourceUrl);
+    } catch (err) {
+      console.error("Failed to create EventSource:", err);
       setAnalysisResults((prev) => ({
         ...prev,
         [tabId]: {
           ...prev[tabId],
           isLoading: false,
-          error:
-            "Failed to connect to analysis service. Please ensure it's running and accessible.",
+          error: "Failed to create connection to analysis service.",
         },
       }));
-      eventSource.close(); // Close connection on error
+      return null;
+    }
+
+    eventSource.onmessage = (event) => {
+      try {
+        setAnalysisResults((prev) => ({
+          ...prev,
+          [tabId]: {
+            ...prev[tabId],
+            content: (prev[tabId]?.content || "") + JSON.parse(event.data),
+            isLoading: false,
+          },
+        }));
+      } catch (e) {
+        console.error("Error processing stream data:", e);
+      }
     };
 
-    // Note: The stream might close without an explicit 'end' event.
-    // The 'error' handler often catches the closure. If the API sends a specific
-    // 'end' message, handle it here to set isLoading to false.
-    // For now, we assume the error handler or component unmount handles closure.
-    // We might need a way to signal completion from the server if onerror isn't reliable for this.
-    // For simplicity, let's assume the server closes the connection when done, triggering onerror or simply stopping messages.
-    // We'll set isLoading to false definitively when the component unmounts or the tab/transcript changes.
+    eventSource.onerror = async (error) => {
+      console.error("EventSource failed. Event:", error);
+      eventSource?.close();
+    };
 
-    // Return the eventSource instance so it can be closed if needed (e.g., on unmount or tab change)
     return eventSource;
   };
 
@@ -842,8 +838,8 @@ export default function EarningsCall() {
           >
             {/* Made TabsList container sticky */}
             {/* Adjusted sticky top to account for main header (h-14) and nav (h-11) */}
-            <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-              <TabsList className="h-11 bg-transparent justify-start px-4">
+            <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
+              <TabsList className="h-11 bg-transparent justify-start">
                 {" "}
                 {/* Slightly taller */}
                 {/* Tabs List with Edit Buttons */}
@@ -886,6 +882,46 @@ export default function EarningsCall() {
                   </div>
                 ))}
               </TabsList>
+
+              {/* Regenerate button aligned right, visible only for custom analysis tabs */}
+              {(() => {
+                const activeTabData = tabs.find((t) => t.id === activeTab);
+                const isCustomAnalysisTab =
+                  activeTabData &&
+                  activeTabData.type === "analysis" &&
+                  !defaultTabs.some((dt) => dt.id === activeTab);
+
+                if (!isCustomAnalysisTab) return null;
+
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex items-center gap-1 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => {
+                      if (activeTabData?.prompt && selectedTranscript?.url) {
+                        // Clear previous result before re-fetching
+                        setAnalysisResults((prev) => ({
+                          ...prev,
+                          [activeTab]: {
+                            content: "",
+                            isLoading: true,
+                            error: null,
+                          },
+                        }));
+                        fetchAnalysis(
+                          activeTab,
+                          selectedTranscript.url,
+                          activeTabData.prompt
+                        );
+                      }
+                    }}
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                    Regenerate
+                  </Button>
+                );
+              })()}
             </div>
 
             {/* Tab content */}
@@ -930,31 +966,35 @@ export default function EarningsCall() {
                       </div>
                     ) : (
                       // Custom analysis tab content
-                      <div className="pr-6">
-                        {analysisResults[tab.id]?.isLoading && (
-                          <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                            Generating analysis...{" "}
-                            <Sparkles className="h-4 w-4 inline animate-pulse" />
-                          </div>
-                        )}
+                      <div className="pr-6 relative group">
                         {analysisResults[tab.id]?.error && (
                           <div className="text-center py-4 text-red-600 dark:text-red-400">
                             Error: {analysisResults[tab.id]?.error}
                           </div>
                         )}
+
+                        {/* Regenerate icon button in top-right */}
+
                         {!analysisResults[tab.id]?.isLoading &&
                           !analysisResults[tab.id]?.error && (
                             <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 rehypePlugins={[rehypeSlug]}
-                                components={MarkdownComponents} // Reuse existing components
+                                components={MarkdownComponents}
                               >
                                 {analysisResults[tab.id]?.content ||
                                   "No analysis generated yet."}
                               </ReactMarkdown>
                             </div>
                           )}
+
+                        {analysisResults[tab.id]?.isLoading && (
+                          <div className="flex flex-col items-center justify-center py-8 text-slate-500 dark:text-slate-400">
+                            <RefreshCcw className="h-6 w-6 mb-2 animate-spin" />
+                            <span>Generating analysis...</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
