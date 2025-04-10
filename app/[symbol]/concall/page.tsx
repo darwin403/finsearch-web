@@ -247,24 +247,28 @@ export default function EarningsCall() {
 
   const sections = getActiveSections();
 
+  // Adjusted "On This Page" component styling
   const OnThisPage = () => (
-    <div className="pl-6 border-l border-border">
-      <h3 className="text-base font-semibold mb-3">Overview</h3>
+    <div className="pl-4 border-l border-slate-200 dark:border-slate-800">
+      <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+        On this page
+      </h3>{" "}
+      {/* Adjusted heading style */}
       <div className="space-y-1.5">
         {sections.map((section) => (
           <a
             key={section.uniqueKey}
             href={`#${section.id}`}
             className={cn(
-              "block text-sm transition-colors duration-200",
+              "block text-sm transition-colors duration-150", // Faster transition
               activeSection === section.id
-                ? "text-primary font-medium"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-blue-600 dark:text-blue-500 font-medium" // Active color
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" // Default and hover colors
             )}
             style={{
               // Level 1 has no padding, each subsequent level adds 0.75rem
               paddingLeft:
-                section.level === 1 ? 0 : `${(section.level - 1) * 0.75}rem`,
+                section.level === 1 ? 0 : `${(section.level - 1) * 0.65}rem`, // Slightly reduced indent
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -287,8 +291,10 @@ export default function EarningsCall() {
   // Define types for custom renderers to satisfy TypeScript
   type HeadingProps = React.ComponentPropsWithoutRef<"h1"> & { node?: any }; // Use 'any' for node if specific type is complex/unknown
   type TdProps = React.ComponentPropsWithoutRef<"td"> & { node?: any };
-
-  const MarkdownComponents: { [key: string]: React.ElementType } = {
+  // Corrected MarkdownComponents definition
+  const MarkdownComponents: React.ComponentProps<
+    typeof ReactMarkdown
+  >["components"] = {
     h1: ({ node, ...props }: HeadingProps) => (
       <h1 id={props.id || ""} {...props} />
     ),
@@ -307,7 +313,6 @@ export default function EarningsCall() {
     h6: ({ node, ...props }: HeadingProps) => (
       <h6 id={props.id || ""} {...props} />
     ),
-    // Custom renderer for table cells (td) with explicit types
     td: ({ node, children, ...props }: TdProps) => {
       // Extract text content from children
       let textContent = "";
@@ -317,14 +322,12 @@ export default function EarningsCall() {
             if (typeof child === "string") {
               return child;
             }
-            // Handle nested elements if necessary, e.g., links or emphasis
             if (
               typeof child === "object" &&
               child !== null &&
               "props" in child &&
               child.props.children
             ) {
-              // Basic handling for simple nested text
               return String(child.props.children);
             }
             return "";
@@ -344,29 +347,31 @@ export default function EarningsCall() {
           icon = (
             <ArrowUp className="h-4 w-4 mr-1 inline-block text-green-600" />
           );
-          textColor = "text-green-700 dark:text-green-400";
+          textColor = "text-green-700 dark:text-green-500 font-medium";
           break;
         case "lowered":
           icon = (
             <ArrowDown className="h-4 w-4 mr-1 inline-block text-red-600" />
           );
-          textColor = "text-red-700 dark:text-red-400";
+          textColor = "text-red-700 dark:text-red-500 font-medium";
           break;
         case "maintained":
           icon = <Minus className="h-4 w-4 mr-1 inline-block text-gray-500" />;
-          textColor = "text-gray-600 dark:text-gray-400";
+          textColor = "text-slate-600 dark:text-slate-400";
           break;
         case "new":
           icon = <Plus className="h-4 w-4 mr-1 inline-block text-blue-600" />;
-          textColor = "text-blue-700 dark:text-blue-400";
+          textColor = "text-blue-700 dark:text-blue-500 font-medium";
           break;
         default:
-          // No icon for other content
           break;
       }
 
+      // Ensure props.className is handled correctly even if undefined
+      const cellClassName = cn("px-4 py-2", props.className || "", textColor);
+
       return (
-        <td {...props} className={cn(props.className, textColor)}>
+        <td {...props} className={cellClassName}>
           {icon}
           {children}
         </td>
@@ -374,63 +379,84 @@ export default function EarningsCall() {
     },
   };
 
+  // Adjusted loading/error states
   if (loading) {
-    return <div className="p-8 text-center">Loading transcript data...</div>;
+    return (
+      <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+        Loading transcript data...
+      </div>
+    );
   }
 
   if (!selectedTranscript) {
-    return <div className="p-8 text-center">No transcript data available.</div>;
+    return (
+      <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+        No transcript data available for {symbol}.
+      </div>
+    );
   }
 
   return (
     <>
-      {" "}
-      {/* Use Fragment instead of outer div */}
-      {/* Removed outer div - handled by layout */}
       <div>
-        {" "}
         {/* Keep padding */}
-        <h1 className="text-2xl font-bold mb-2">Earnings Call Analysis</h1>
-        <p className="text-muted-foreground mb-4">
-          Comprehensive analysis of quarterly earnings calls for {symbol}
+        {/* Adjusted heading size and spacing */}
+        <h1 className="text-3xl font-semibold mb-1 text-slate-900 dark:text-slate-100">
+          Earnings Call Analysis
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-6">
+          {" "}
+          {/* Adjusted color and margin */}
+          Comprehensive analysis of quarterly earnings calls for{" "}
+          <span className="font-medium text-slate-700 dark:text-slate-300">
+            {symbol}
+          </span>
         </p>
         {/* Top controls outside of card */}
-        <div className="flex flex-wrap items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between mb-6">
+          {" "}
+          {/* Increased bottom margin */}
           {/* Quarter selector with navigation */}
           <div className="flex items-center space-x-2">
+            {/* Using consistent shadcn button styling */}
             <Button
               variant="outline"
               size="icon"
               onClick={handlePreviousQuarter}
               disabled={transcripts.indexOf(selectedTranscript) <= 0}
+              className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <div className="relative">
+              {/* Adjusted quarter selector button styling */}
               <Button
                 variant="outline"
-                className="flex items-center gap-2 font-medium w-[140px] justify-between"
+                className="flex items-center gap-2 font-medium w-[150px] justify-between border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" // Adjusted width and colors
                 onClick={() => setShowQuarterDropdown(!showQuarterDropdown)}
               >
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2" />
+                  <Calendar className="h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />{" "}
+                  {/* Icon color */}
                   <span>{selectedTranscript.fiscal_quarter}</span>
                 </div>
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />{" "}
+                {/* Icon color */}
               </Button>
 
-              {showQuarterDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-background border rounded-md shadow-md z-10 w-[180px]">
+              {showQuarterDropdown && ( // Adjusted dropdown styling
+                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg z-10 w-[180px]">
                   <div className="p-1">
                     {transcripts.map((transcript) => (
                       <Button
                         key={transcript.id}
                         variant="ghost"
-                        className={`w-full justify-start text-left ${
+                        className={`w-full justify-start text-left text-sm px-2 py-1.5 rounded-sm ${
+                          // Adjusted padding and text size
                           selectedTranscript.id === transcript.id
-                            ? "bg-muted font-medium"
-                            : ""
+                            ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100" // Adjusted selected colors
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50" // Adjusted hover colors
                         }`}
                         onClick={() => {
                           setSelectedTranscript(transcript);
@@ -445,6 +471,7 @@ export default function EarningsCall() {
               )}
             </div>
 
+            {/* Using consistent shadcn button styling */}
             <Button
               variant="outline"
               size="icon"
@@ -453,6 +480,7 @@ export default function EarningsCall() {
                 transcripts.indexOf(selectedTranscript) >=
                 transcripts.length - 1
               }
+              className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -463,88 +491,129 @@ export default function EarningsCall() {
               target="_blank"
               rel="noopener noreferrer"
             >
+              {/* Adjusted PDF button styling */}
               <Button
                 variant="outline"
-                className="ml-2 flex items-center gap-2 font-medium"
+                className="ml-2 flex items-center gap-2 font-medium border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <FileText className="h-4 w-4" />
+                <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />{" "}
+                {/* Icon color */}
                 Transcript PDF
               </Button>
             </a>
           </div>
-
           <div className="flex items-center gap-2">
             <Dialog>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Sparkles className="h-4 w-4" />
+                {/* Adjusted AI button styling */}
+                <Button
+                  size="sm"
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
+                >
+                  <Sparkles className="h-4 w-4" /> {/* Icon color inherited */}
                   AI Custom Analysis
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              {/* Adjusted Dialog styling */}
+              <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
                 <DialogHeader>
-                  <DialogTitle>Create Custom Analysis</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-slate-900 dark:text-slate-100">
+                    Create Custom Analysis
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-600 dark:text-slate-400">
                     Create a custom tab with AI analysis of this earnings
                     transcript.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium">
+                    <label
+                      htmlFor="name"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      {" "}
+                      {/* Label color */}
                       Tab Name
                     </label>
+                    {/* Adjusted Input styling */}
                     <Input
                       id="name"
                       placeholder="E.g., Management Tone"
                       value={newTabName}
                       onChange={(e) => setNewTabName(e.target.value)}
+                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="prompt" className="text-sm font-medium">
+                    <label
+                      htmlFor="prompt"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      {" "}
+                      {/* Label color */}
                       Analysis Prompt
                     </label>
+                    {/* Adjusted Textarea styling */}
                     <Textarea
                       id="prompt"
                       placeholder="Describe what you'd like to analyze from this earnings transcript..."
                       rows={5}
                       value={newTabPrompt}
                       onChange={(e) => setNewTabPrompt(e.target.value)}
+                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
                     />
                   </div>
                 </div>
                 <DialogFooter>
+                  {/* Adjusted Dialog Footer Buttons */}
                   <Button
                     variant="outline"
                     onClick={() => {
                       setNewTabName("");
                       setNewTabPrompt("");
+                      // Consider closing the dialog here if needed
                     }}
+                    className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </Button>
-                  <Button onClick={addCustomTab}>Create</Button>
+                  <Button
+                    onClick={addCustomTab}
+                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
+                  >
+                    Create
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </div>
-        <Card className="border rounded-lg shadow-sm">
+        {/* Adjusted Card styling */}
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950">
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange} // Use the new handler
             className="w-full"
           >
-            <div className="border-b">
-              <TabsList className="h-10 bg-transparent justify-start px-4">
+            {/* Made TabsList container sticky */}
+            {/* Adjusted sticky top to account for main header (h-14) and nav (h-11) */}
+            <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+              <TabsList className="h-11 bg-transparent justify-start px-4">
+                {" "}
+                {/* Slightly taller */}
                 {tabs.map((tab) => (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="h-10 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent relative"
+                    // Adjusted TabsTrigger styling for better active state and colors
+                    className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                   >
-                    {tab.icon && <span className="mr-2">{tab.icon}</span>}
+                    {/* Ensure icon color matches text color */}
+                    {tab.icon && (
+                      <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
+                        {tab.icon}
+                      </span>
+                    )}
                     {tab.title}
                   </TabsTrigger>
                 ))}
@@ -554,24 +623,30 @@ export default function EarningsCall() {
             {/* Tab content */}
             {tabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
-                <div className="flex p-6">
+                {/* Corrected JSX structure for TabsContent mapping */}
+                <div className="flex p-6 gap-8">
+                  {" "}
+                  {/* Added gap */}
                   <div className="flex-1">
+                    {/* Conditional rendering for default vs custom tabs */}
                     {tab.id === "summary" ||
                     tab.id === "qa" ||
                     tab.id === "guidance" ? (
-                      <div className="h-[600px] overflow-y-auto pr-4">
-                        {/* Add the note here for the guidance tab */}
+                      <div className="pr-6">
+                        {" "}
+                        {/* Removed h-[600px] overflow-y-auto and scrollbar classes */}
                         {tab.id === "guidance" && (
-                          <p className="text-sm text-muted-foreground mb-4 border-l-4 border-yellow-500 pl-3 py-1 bg-yellow-50 dark:bg-yellow-900/20">
-                            <b>Note:</b> The "Previous Guidance" column
-                            currently does not reflect data from previous
-                            quarters earnings transcripts. This feature will be
-                            added in a future version.
-                          </p>
+                          <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
+                            <span className="font-semibold">Note:</span> The
+                            "Previous Guidance" column currently does not
+                            reflect data from previous quarters' earnings
+                            transcripts. This feature will be added in a future
+                            version.
+                          </div>
                         )}
-                        <div className="prose prose-slate dark:prose-invert prose-headings:font-heading prose-headings:scroll-mt-28 max-w-none">
+                        <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">
                           <ReactMarkdown
-                            remarkPlugins={[remarkGfm]} // Add remarkGfm for table support
+                            remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeSlug]}
                             components={MarkdownComponents}
                           >
@@ -586,18 +661,23 @@ export default function EarningsCall() {
                         </div>
                       </div>
                     ) : (
-                      // Handle custom analysis tabs or other types if needed
-                      <div className="prose max-w-none">
-                        {/* This part might be for custom AI tabs now */}
-                        <h2 className="text-3xl font-bold mb-6">{tab.title}</h2>
-                        {/* Placeholder for potential custom tab content */}
-                        <p>Analysis content for {tab.title} goes here.</p>
+                      // Custom analysis tab content
+                      <div className="prose prose-slate dark:prose-invert max-w-none">
+                        <h2 className="text-2xl font-semibold mb-4 text-slate-800 dark:text-slate-200">
+                          {tab.title}
+                        </h2>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          AI-generated analysis based on your prompt will appear
+                          here.
+                        </p>
+                        {/* Placeholder for AI analysis */}
                       </div>
                     )}
                   </div>
-
+                  {/* Table of Contents */}
                   {tab.showToc && sections.length > 0 && (
-                    <div className="ml-8 sticky top-4 self-start hidden md:block w-64">
+                    <div className="sticky top-[148px] self-start hidden lg:block w-60 flex-shrink-0">
+                      {/* Adjusted sticky top to be below the sticky tabs bar (100px + 44px + 4px gap) */}
                       <OnThisPage />
                     </div>
                   )}
@@ -607,6 +687,6 @@ export default function EarningsCall() {
           </Tabs>
         </Card>
       </div>
-    </> // Close Fragment
+    </>
   );
 }
