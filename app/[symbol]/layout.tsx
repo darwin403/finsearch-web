@@ -1,6 +1,6 @@
 // app/layout.tsx
 "use client";
-import React from "react";
+import React, { use } from "react"; // Import use
 
 import {
   useState,
@@ -9,7 +9,7 @@ import {
   KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter, usePathname } from "next/navigation"; // Import useRouter and usePathname
 import { algoliasearch } from "algoliasearch"; // Import Algolia client
 import { Search } from "lucide-react";
 
@@ -21,30 +21,38 @@ const ALGOLIA_INDEX_NAME = "finsearch_companies"; // Replace with your index nam
 
 const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 
-export default function RootLayout({
+// Define the sections for navigation
+const sections = [
+  { id: "overview", title: "Overview", path: "overview" },
+  { id: "financials", title: "Financials", path: "financials" },
+  { id: "risk-factors", title: "Risk Factors", path: "risk-factors" },
+  { id: "management", title: "Management", path: "management" },
+  { id: "concall", title: "Earnings Calls", path: "concall" }, // Updated path to 'concall'
+];
+
+export default function SymbolLayout({
   children,
+  params, // Add params to get the symbol
 }: {
   children: React.ReactNode;
+  params: Promise<{ symbol: string }>; // Define params type as Promise
 }) {
+  const resolvedParams = use(params); // Unwrap the params promise
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]); // State for Algolia results
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activeSection, setActiveSection] = useState("overview");
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter(); // Initialize router
+  const pathname = usePathname(); // Get current path
 
-  // Section references for scrolling
-  const sections = [
-    { id: "overview", title: "Overview" },
-    { id: "financials", title: "Financials" },
-    { id: "risk-factors", title: "Risk Factors" },
-    { id: "management", title: "Management" },
-    { id: "earnings-calls", title: "Earnings Calls" },
-  ];
+  // Determine active section based on pathname
+  const activeSectionId =
+    sections.find((section) => pathname?.endsWith(`/${section.path}`))?.id ||
+    sections[0].id; // Default to first section if no match
 
   // Fetch companies from Algolia based on search query
   useEffect(() => {
@@ -55,14 +63,13 @@ export default function RootLayout({
             {
               indexName: ALGOLIA_INDEX_NAME,
               query: searchQuery,
-              hitsPerPage: 10, // Limit results - Moved out of params
-            }, // Removed extra comma and brace from lines 55 & 56
+              hitsPerPage: 10, // Limit results
+            },
           ],
         })
         .then(({ results }: { results: any[] }) => {
-          // Add type annotation for results
           if (results && results[0] && results[0].hits) {
-            setFilteredCompanies(results[0].hits); // Access hits correctly
+            setFilteredCompanies(results[0].hits);
             setShowResults(true);
             setSelectedIndex(0); // Reset selection
           } else {
@@ -100,7 +107,6 @@ export default function RootLayout({
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (!showResults) return;
 
-    // Arrow down - move selection down
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) =>
@@ -108,20 +114,17 @@ export default function RootLayout({
       );
     }
 
-    // Arrow up - move selection up
     if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
     }
 
-    // Enter - select the highlighted company
     if (e.key === "Enter" && filteredCompanies.length > 0) {
       e.preventDefault();
       const selectedCompany = filteredCompanies[selectedIndex];
       handleCompanySelect(selectedCompany);
     }
 
-    // Escape - close search results
     if (e.key === "Escape") {
       setShowResults(false);
       inputRef.current?.blur();
@@ -130,44 +133,14 @@ export default function RootLayout({
 
   // Handle company selection
   const handleCompanySelect = (company: any) => {
-    // Accept Algolia hit object
     console.log(`Selected company: ${company.name}`);
     setShowResults(false);
     setSearchQuery(""); // Optional: clear search after selection
-    // Navigate to the company page using its symbol
     if (company.symbol) {
-      router.push(`/${company.symbol}/concall`);
+      // Navigate to the overview page of the selected company by default
+      router.push(`/${company.symbol}/overview`);
     }
   };
-
-  // Scroll to section
-  const scrollToSection = (sectionId: string) => {
-    const section = document.getElementById(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth" });
-      setActiveSection(sectionId);
-    }
-  };
-
-  // Detect active section on scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      for (const section of sections) {
-        const element = document.getElementById(section.id);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          // Add some buffer from the top (accounting for sticky header)
-          if (rect.top <= 150 && rect.bottom > 150) {
-            setActiveSection(section.id);
-            break;
-          }
-        }
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [sections]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -214,7 +187,6 @@ export default function RootLayout({
                       onClick={() => handleCompanySelect(company)}
                       onMouseEnter={() => setSelectedIndex(index)}
                     >
-                      {/* Display symbol as title and name as description */}
                       <div className="font-medium">
                         {company.symbol || "N/A"}
                       </div>
@@ -243,64 +215,28 @@ export default function RootLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             {sections.map((section) => (
-              <button
+              <Link
                 key={section.id}
-                onClick={() => scrollToSection(section.id)}
+                href={`/${resolvedParams.symbol}/${section.path}`} // Use resolvedParams
                 className={`py-3 border-b-2 text-sm font-medium ${
-                  activeSection === section.id
+                  activeSectionId === section.id // Use activeSectionId based on path
                     ? "border-gray-800 text-gray-800"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 {section.title}
-              </button>
+              </Link>
             ))}
           </div>
         </div>
       </nav>
 
-      {/* Content Sections */}
+      {/* Content Area */}
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Each section */}
-          {sections.map((section) => (
-            <section
-              key={section.id}
-              id={section.id}
-              className="py-12 scroll-mt-32" // Increased scroll margin to account for sticky header
-            >
-              <h2 className="text-2xl font-bold mb-6">{section.title}</h2>
-              {section.id === "overview" && (
-                <div className="space-y-4">{/* Overview content */}</div>
-              )}
-              {section.id === "financials" && (
-                <div className="space-y-4">{/* Financials content */}</div>
-              )}
-              {section.id === "risk-factors" && (
-                <div className="space-y-4">{/* Risk Factors content */}</div>
-              )}
-              {section.id === "management" && (
-                <div className="space-y-4">{/* Management content */}</div>
-              )}
-              {section.id === "earnings-calls" && (
-                <div className="space-y-4">
-                  {/* Earnings Calls content */}
-                  <div className="mt-6">
-                    <h3 className="text-xl font-bold">
-                      Earnings Call Analysis
-                    </h3>
-                    <p className="text-gray-600 mt-1">
-                      Comprehensive analysis of quarterly earnings calls and
-                      financial performance
-                    </p>
-
-                    {/* This section would contain your actual earnings call content */}
-                    {children}
-                  </div>
-                </div>
-              )}
-            </section>
-          ))}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {" "}
+          {/* Added padding */}
+          {children} {/* Render the active page content here */}
         </div>
       </main>
 

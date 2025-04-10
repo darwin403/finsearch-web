@@ -361,231 +361,230 @@ export default function EarningsCall() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1600px] mx-auto px-6">
-        <div className="py-8">
-          <h1 className="text-2xl font-bold mb-2">Earnings Call Analysis</h1>
-          <p className="text-muted-foreground mb-4">
-            Comprehensive analysis of quarterly earnings calls for {symbol}
-          </p>
+    <>
+      {" "}
+      {/* Use Fragment instead of outer div */}
+      {/* Removed outer div - handled by layout */}
+      <div>
+        {" "}
+        {/* Keep padding */}
+        <h1 className="text-2xl font-bold mb-2">Earnings Call Analysis</h1>
+        <p className="text-muted-foreground mb-4">
+          Comprehensive analysis of quarterly earnings calls for {symbol}
+        </p>
+        {/* Top controls outside of card */}
+        <div className="flex flex-wrap items-center justify-between mb-4">
+          {/* Quarter selector with navigation */}
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePreviousQuarter}
+              disabled={transcripts.indexOf(selectedTranscript) <= 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
-          {/* Top controls outside of card */}
-          <div className="flex flex-wrap items-center justify-between mb-4">
-            {/* Quarter selector with navigation */}
-            <div className="flex items-center space-x-2">
+            <div className="relative">
               <Button
                 variant="outline"
-                size="icon"
-                onClick={handlePreviousQuarter}
-                disabled={transcripts.indexOf(selectedTranscript) <= 0}
+                className="flex items-center gap-2 font-medium w-[140px] justify-between"
+                onClick={() => setShowQuarterDropdown(!showQuarterDropdown)}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>{selectedTranscript.fiscal_quarter}</span>
+                </div>
+                <ChevronDown className="h-4 w-4" />
               </Button>
 
-              <div className="relative">
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 font-medium w-[140px] justify-between"
-                  onClick={() => setShowQuarterDropdown(!showQuarterDropdown)}
-                >
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <span>{selectedTranscript.fiscal_quarter}</span>
+              {showQuarterDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-background border rounded-md shadow-md z-10 w-[180px]">
+                  <div className="p-1">
+                    {transcripts.map((transcript) => (
+                      <Button
+                        key={transcript.id}
+                        variant="ghost"
+                        className={`w-full justify-start text-left ${
+                          selectedTranscript.id === transcript.id
+                            ? "bg-muted font-medium"
+                            : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedTranscript(transcript);
+                          setShowQuarterDropdown(false);
+                        }}
+                      >
+                        {transcript.fiscal_quarter} ({transcript.date})
+                      </Button>
+                    ))}
                   </div>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
+                </div>
+              )}
+            </div>
 
-                {showQuarterDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-background border rounded-md shadow-md z-10 w-[180px]">
-                    <div className="p-1">
-                      {transcripts.map((transcript) => (
-                        <Button
-                          key={transcript.id}
-                          variant="ghost"
-                          className={`w-full justify-start text-left ${
-                            selectedTranscript.id === transcript.id
-                              ? "bg-muted font-medium"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            setSelectedTranscript(transcript);
-                            setShowQuarterDropdown(false);
-                          }}
-                        >
-                          {transcript.fiscal_quarter} ({transcript.date})
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNextQuarter}
+              disabled={
+                transcripts.indexOf(selectedTranscript) >=
+                transcripts.length - 1
+              }
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
 
+            {/* Source PDF Button - open in new tab */}
+            <a
+              href={selectedTranscript.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Button
                 variant="outline"
-                size="icon"
-                onClick={handleNextQuarter}
-                disabled={
-                  transcripts.indexOf(selectedTranscript) >=
-                  transcripts.length - 1
-                }
+                className="ml-2 flex items-center gap-2 font-medium"
               >
-                <ChevronRight className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
+                Transcript PDF
               </Button>
-
-              {/* Source PDF Button - open in new tab */}
-              <a
-                href={selectedTranscript.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button
-                  variant="outline"
-                  className="ml-2 flex items-center gap-2 font-medium"
-                >
-                  <FileText className="h-4 w-4" />
-                  Transcript PDF
-                </Button>
-              </a>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    AI Custom Analysis
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create Custom Analysis</DialogTitle>
-                    <DialogDescription>
-                      Create a custom tab with AI analysis of this earnings
-                      transcript.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-medium">
-                        Tab Name
-                      </label>
-                      <Input
-                        id="name"
-                        placeholder="E.g., Management Tone"
-                        value={newTabName}
-                        onChange={(e) => setNewTabName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="prompt" className="text-sm font-medium">
-                        Analysis Prompt
-                      </label>
-                      <Textarea
-                        id="prompt"
-                        placeholder="Describe what you'd like to analyze from this earnings transcript..."
-                        rows={5}
-                        value={newTabPrompt}
-                        onChange={(e) => setNewTabPrompt(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setNewTabName("");
-                        setNewTabPrompt("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={addCustomTab}>Create</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+            </a>
           </div>
 
-          <Card className="border rounded-lg shadow-sm">
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <div className="border-b">
-                <TabsList className="h-10 bg-transparent justify-start px-4">
-                  {tabs.map((tab) => (
-                    <TabsTrigger
-                      key={tab.id}
-                      value={tab.id}
-                      className="h-10 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent relative"
-                    >
-                      {tab.icon && <span className="mr-2">{tab.icon}</span>}
-                      {tab.title}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </div>
+          <div className="flex items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  AI Custom Analysis
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Custom Analysis</DialogTitle>
+                  <DialogDescription>
+                    Create a custom tab with AI analysis of this earnings
+                    transcript.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Tab Name
+                    </label>
+                    <Input
+                      id="name"
+                      placeholder="E.g., Management Tone"
+                      value={newTabName}
+                      onChange={(e) => setNewTabName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="prompt" className="text-sm font-medium">
+                      Analysis Prompt
+                    </label>
+                    <Textarea
+                      id="prompt"
+                      placeholder="Describe what you'd like to analyze from this earnings transcript..."
+                      rows={5}
+                      value={newTabPrompt}
+                      onChange={(e) => setNewTabPrompt(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setNewTabName("");
+                      setNewTabPrompt("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={addCustomTab}>Create</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+        <Card className="border rounded-lg shadow-sm">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <div className="border-b">
+              <TabsList className="h-10 bg-transparent justify-start px-4">
+                {tabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="h-10 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent relative"
+                  >
+                    {tab.icon && <span className="mr-2">{tab.icon}</span>}
+                    {tab.title}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-              {/* Tab content */}
-              {tabs.map((tab) => (
-                <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
-                  <div className="flex p-6">
-                    <div className="flex-1">
-                      {tab.id === "summary" ||
-                      tab.id === "qa" ||
-                      tab.id === "guidance" ? (
-                        <div className="h-[600px] overflow-y-auto pr-4">
-                          {/* Add the note here for the guidance tab */}
-                          {tab.id === "guidance" && (
-                            <p className="text-sm text-muted-foreground mb-4 border-l-4 border-yellow-500 pl-3 py-1 bg-yellow-50 dark:bg-yellow-900/20">
-                              <b>Note:</b> The "Previous Guidance" column
-                              currently does not reflect data from previous
-                              quarters earnings transcripts. This feature will
-                              be added in a future version.
-                            </p>
-                          )}
-                          <div className="prose prose-slate dark:prose-invert prose-headings:font-heading prose-headings:scroll-mt-28 max-w-none">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]} // Add remarkGfm for table support
-                              rehypePlugins={[rehypeSlug]}
-                              components={MarkdownComponents}
-                            >
-                              {tab.id === "summary"
-                                ? selectedTranscript.summary
-                                : tab.id === "qa"
-                                ? selectedTranscript.qna ||
-                                  "No Q&A data available."
-                                : selectedTranscript.guidance_changes ||
-                                  "No Guidance data available."}
-                            </ReactMarkdown>
-                          </div>
+            {/* Tab content */}
+            {tabs.map((tab) => (
+              <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
+                <div className="flex p-6">
+                  <div className="flex-1">
+                    {tab.id === "summary" ||
+                    tab.id === "qa" ||
+                    tab.id === "guidance" ? (
+                      <div className="h-[600px] overflow-y-auto pr-4">
+                        {/* Add the note here for the guidance tab */}
+                        {tab.id === "guidance" && (
+                          <p className="text-sm text-muted-foreground mb-4 border-l-4 border-yellow-500 pl-3 py-1 bg-yellow-50 dark:bg-yellow-900/20">
+                            <b>Note:</b> The "Previous Guidance" column
+                            currently does not reflect data from previous
+                            quarters earnings transcripts. This feature will be
+                            added in a future version.
+                          </p>
+                        )}
+                        <div className="prose prose-slate dark:prose-invert prose-headings:font-heading prose-headings:scroll-mt-28 max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]} // Add remarkGfm for table support
+                            rehypePlugins={[rehypeSlug]}
+                            components={MarkdownComponents}
+                          >
+                            {tab.id === "summary"
+                              ? selectedTranscript.summary
+                              : tab.id === "qa"
+                              ? selectedTranscript.qna ||
+                                "No Q&A data available."
+                              : selectedTranscript.guidance_changes ||
+                                "No Guidance data available."}
+                          </ReactMarkdown>
                         </div>
-                      ) : (
-                        // Handle custom analysis tabs or other types if needed
-                        <div className="prose max-w-none">
-                          {/* This part might be for custom AI tabs now */}
-                          <h2 className="text-3xl font-bold mb-6">
-                            {tab.title}
-                          </h2>
-                          {/* Placeholder for potential custom tab content */}
-                          <p>Analysis content for {tab.title} goes here.</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {tab.showToc && sections.length > 0 && (
-                      <div className="ml-8 sticky top-4 self-start hidden md:block w-64">
-                        <OnThisPage />
+                      </div>
+                    ) : (
+                      // Handle custom analysis tabs or other types if needed
+                      <div className="prose max-w-none">
+                        {/* This part might be for custom AI tabs now */}
+                        <h2 className="text-3xl font-bold mb-6">{tab.title}</h2>
+                        {/* Placeholder for potential custom tab content */}
+                        <p>Analysis content for {tab.title} goes here.</p>
                       </div>
                     )}
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </Card>
-        </div>
+
+                  {tab.showToc && sections.length > 0 && (
+                    <div className="ml-8 sticky top-4 self-start hidden md:block w-64">
+                      <OnThisPage />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </Card>
       </div>
-    </div>
+    </> // Close Fragment
   );
 }
