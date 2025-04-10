@@ -136,9 +136,27 @@ export default function SymbolLayout({
     console.log(`Selected company: ${company.name}`);
     setShowResults(false);
     setSearchQuery(""); // Optional: clear search after selection
+
     if (company.symbol) {
-      // Navigate to the overview page of the selected company by default
-      router.push(`/${company.symbol}/overview`);
+      // Determine the current section path from the pathname
+      const currentPathSegments = pathname?.split("/").filter(Boolean); // e.g., ['MSFT', 'financials']
+      const currentSectionPath =
+        currentPathSegments?.[currentPathSegments.length - 1]; // Get the last segment
+
+      // Find the section object matching the current path, default to 'overview' if not found or invalid
+      const targetSection =
+        sections.find((s) => s.path === currentSectionPath) ||
+        sections.find((s) => s.id === "overview");
+      const targetPath = targetSection ? targetSection.path : "overview"; // Fallback to overview path
+
+      // Preserve hash if navigating within the concall page
+      let targetUrl = `/${company.symbol}/${targetPath}`;
+      if (targetPath === "concall" && window.location.hash) {
+        targetUrl += window.location.hash; // Append current hash (e.g., #qa)
+      }
+
+      // Navigate to the same section (and potentially tab) for the new company
+      router.push(targetUrl);
     }
   };
 

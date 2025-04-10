@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // Import useRouter
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,8 @@ interface Section {
 
 export default function EarningsCall() {
   const params = useParams();
-  const symbol = params.symbol || "UNKNOWN";
+  const symbol = (params.symbol as string) || "UNKNOWN"; // Type assertion for symbol
+  const router = useRouter(); // Initialize router
 
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +131,28 @@ export default function EarningsCall() {
   ];
 
   const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
-  const [activeTab, setActiveTab] = useState("summary");
+  const [activeTab, setActiveTab] = useState("summary"); // Default tab
+
+  // Effect to sync URL hash with activeTab state
+  useEffect(() => {
+    const currentHash = window.location.hash.substring(1); // Get hash without '#'
+    const isValidTab = defaultTabs.some((tab) => tab.id === currentHash);
+    if (isValidTab && currentHash !== activeTab) {
+      setActiveTab(currentHash);
+    } else if (!isValidTab && activeTab !== "summary") {
+      // If hash is invalid or empty, reset to default tab state
+      // No need to push state here, let the default state handle it.
+      // Optionally, you could reset the hash: router.replace('#summary', { scroll: false });
+    }
+    // We only want to run this check when the component mounts or potentially when defaultTabs changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Consider adding defaultTabs if it can change dynamically
+
+  // Handler to update state and URL hash on tab change
+  const handleTabChange = (newTabId: string) => {
+    setActiveTab(newTabId);
+    router.replace(`#${newTabId}`, { scroll: false }); // Update hash without adding to history
+  };
 
   // Navigation handlers
   const handlePreviousQuarter = () => {
@@ -511,7 +533,7 @@ export default function EarningsCall() {
         <Card className="border rounded-lg shadow-sm">
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={handleTabChange} // Use the new handler
             className="w-full"
           >
             <div className="border-b">
