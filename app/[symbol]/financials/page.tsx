@@ -9,11 +9,11 @@ import { generateQuarterlyData } from "./financialDataGenerator"; // You'd creat
 
 // Components
 const FinancialTableHeader = ({ particulars, quarters }) => (
-  <thead className="bg-slate-50 dark:bg-slate-800/50">
+  <thead className="bg-slate-50 dark:bg-slate-800">
     <tr>
       <th
         scope="col"
-        className="w-[300px] min-w-[300px] px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-300 sticky left-0 z-20 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
+        className="w-[250px] min-w-[250px] px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 sticky left-0 z-20 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
       >
         {particulars}
       </th>
@@ -22,8 +22,8 @@ const FinancialTableHeader = ({ particulars, quarters }) => (
           key={quarter}
           scope="col"
           className={cn(
-            "px-4 py-3 text-right text-sm font-medium text-slate-700 dark:text-slate-300 w-[120px] min-w-[120px]",
-            index === 0 && "bg-slate-100/80 dark:bg-slate-700/30"
+            "px-3 py-2 text-right text-xs font-medium text-slate-700 dark:text-slate-300 w-[100px] min-w-[100px]",
+            index === 0 && "bg-slate-100 dark:bg-slate-700"
           )}
         >
           {quarter}
@@ -41,22 +41,22 @@ const FinancialTableRow = ({
 }) => {
   // Styling classes based on row type
   const rowBaseClass = cn(
-    "hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors",
-    item.type === "header" && "bg-slate-50/80 dark:bg-slate-800/30",
-    item.type === "total" && "bg-slate-50/60 dark:bg-slate-800/20",
-    item.type === "subtotal" && "bg-slate-50/30 dark:bg-slate-800/10"
+    "hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+    item.type === "header" && "bg-slate-50 dark:bg-slate-800",
+    item.type === "total" && "bg-slate-50 dark:bg-slate-800",
+    item.type === "subtotal" && "bg-slate-50 dark:bg-slate-800"
   );
 
   const cellBaseClass = cn(
-    "px-4 py-2.5 text-sm sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700",
+    "px-3 py-1.5 text-xs sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700",
     item.type === "header" &&
-      "font-semibold cursor-pointer text-slate-800 dark:text-slate-200 bg-slate-50/80 dark:bg-slate-800/30",
+      "font-semibold cursor-pointer text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800",
     item.type === "item" &&
-      "pl-8 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900",
+      "pl-6 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900",
     item.type === "subtotal" &&
-      "font-medium text-slate-700 bg-slate-50/30 dark:bg-slate-800/10",
+      "font-medium text-slate-700 bg-slate-50 dark:bg-slate-800",
     item.type === "total" &&
-      "font-semibold text-slate-800 bg-slate-50/60 dark:bg-slate-800/20"
+      "font-semibold text-slate-800 bg-slate-50 dark:bg-slate-800"
   );
 
   return (
@@ -68,9 +68,9 @@ const FinancialTableRow = ({
         {item.type === "header" ? (
           <span className="inline-flex items-center">
             {expandedSections[item.id] ? (
-              <ChevronDown className="h-4 w-4 mr-1.5 text-slate-500" />
+              <ChevronDown className="h-3 w-3 mr-1 text-slate-500" />
             ) : (
-              <ChevronRight className="h-4 w-4 mr-1.5 text-slate-500" />
+              <ChevronRight className="h-3 w-3 mr-1 text-slate-500" />
             )}
             {item.particulars}
           </span>
@@ -85,12 +85,12 @@ const FinancialTableRow = ({
           <td
             key={`${item.id}-${quarterKey}`}
             className={cn(
-              "px-4 py-2.5 text-right text-sm",
+              "px-3 py-1.5 text-right text-xs",
               item.type === "total" &&
                 "font-semibold text-slate-800 dark:text-slate-200",
               item.type === "subtotal" &&
                 "font-medium text-slate-700 dark:text-slate-300",
-              index === 0 && "bg-slate-50/30 dark:bg-slate-800/5"
+              index === 0 && "bg-slate-50 dark:bg-slate-800"
             )}
           >
             {formatNumber(item[quarterKey])}
@@ -182,13 +182,13 @@ export default function FinancialsPage() {
 
   return (
     <div className="mx-auto py-4 max-w-full px-4">
-      <h2 className="text-xl font-semibold mb-4">Quarterly Income Statement</h2>
+      <h2 className="text-xl font-semibold mb-3">Quarterly Income Statement</h2>
 
       <div className="rounded-md border shadow-sm overflow-hidden">
         <div className="relative">
           <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
             <div className="inline-block min-w-full align-middle">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed text-xs">
                 <FinancialTableHeader
                   particulars="Particulars"
                   quarters={financialData.quarters}
@@ -210,23 +210,23 @@ export default function FinancialsPage() {
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 dark:text-slate-400 p-2 text-right italic border-t border-slate-200 dark:border-slate-700">
+        <div className="text-[10px] text-slate-500 dark:text-slate-400 p-1.5 text-right italic border-t border-slate-200 dark:border-slate-700">
           All figures in ₹ Crores
         </div>
       </div>
 
-      <div className="flex justify-between items-center mt-3">
-        <div className="text-xs text-slate-400 dark:text-slate-500">
+      <div className="flex justify-between items-center mt-2">
+        <div className="text-[10px] text-slate-400 dark:text-slate-500">
           <span className="inline-flex items-center">
-            <span className="w-3 h-3 inline-block bg-slate-50/80 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 mr-1"></span>
+            <span className="w-2.5 h-2.5 inline-block bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mr-1"></span>
             Section Headers
           </span>
-          <span className="inline-flex items-center ml-3">
-            <span className="w-3 h-3 inline-block bg-slate-50/60 dark:bg-slate-800/20 border border-slate-200 dark:border-slate-700 mr-1"></span>
+          <span className="inline-flex items-center ml-2">
+            <span className="w-2.5 h-2.5 inline-block bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mr-1"></span>
             Totals
           </span>
         </div>
-        <div className="text-xs text-slate-400 dark:text-slate-500">
+        <div className="text-[10px] text-slate-400 dark:text-slate-500">
           ← Scroll horizontally to view more quarters →
         </div>
       </div>
