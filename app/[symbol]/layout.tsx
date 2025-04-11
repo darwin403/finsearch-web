@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation"; // Import useRouter and usePathname
 import { algoliasearch } from "algoliasearch"; // Import Algolia client
 import { Search } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle"; // Import ThemeToggle
 
 // Algolia configuration
 const ALGOLIA_APP_ID = "WP3HSGTPKW";
@@ -226,7 +227,7 @@ export default function SymbolLayout({
             )}
           </div>
           {/* Authentication buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             {/* Using shadcn Button component styling for consistency */}
             <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300">
               Sign In
@@ -234,6 +235,7 @@ export default function SymbolLayout({
             <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900">
               Sign Up
             </button>
+            <ThemeToggle />
           </div>
         </div>
       </header>
