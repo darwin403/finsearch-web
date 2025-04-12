@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation"; // Import useRouter
+import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,17 +25,17 @@ import {
   MessageSquare,
   Target,
   ChevronDown,
-  ArrowUp, // Added for guidance change
-  ArrowDown, // Added for guidance change
-  Minus, // Added for guidance change
-  Plus, // Added for guidance change
-  Edit, // Added
-  Trash2, // Added
-  RefreshCcw, // Added for regenerate button
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCcw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
-import remarkGfm from "remark-gfm"; // Import remark-gfm
+import remarkGfm from "remark-gfm";
 import cn from "classnames";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -72,8 +72,8 @@ interface Section {
 
 export default function EarningsCall() {
   const params = useParams();
-  const symbol = (params.symbol as string) || "UNKNOWN"; // Type assertion for symbol
-  const router = useRouter(); // Initialize router
+  const symbol = (params.symbol as string) || "UNKNOWN";
+  const router = useRouter();
   const { user } = useAuth();
 
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -84,13 +84,13 @@ export default function EarningsCall() {
   const [newTabName, setNewTabName] = useState("");
   const [newTabPrompt, setNewTabPrompt] = useState("");
   const [activeSection, setActiveSection] = useState("");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false); // Control create dialog
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); // Control edit dialog
-  const [editingTabId, setEditingTabId] = useState<string | null>(null); // ID of tab being edited
-  const [editTabName, setEditTabName] = useState(""); // Temp state for editing name
-  const [editTabPrompt, setEditTabPrompt] = useState(""); // Temp state for editing prompt
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editTabName, setEditTabName] = useState("");
+  const [editTabPrompt, setEditTabPrompt] = useState("");
 
-  // State to store analysis results for custom tabs
+  // Store analysis results for custom tabs
   const [analysisResults, setAnalysisResults] = useState<
     Record<
       string,
@@ -98,7 +98,7 @@ export default function EarningsCall() {
     >
   >({});
 
-  // Fetch transcript data from the API
+  // Fetch transcript data
   useEffect(() => {
     const fetchTranscripts = async () => {
       try {
@@ -110,11 +110,9 @@ export default function EarningsCall() {
         const data = await response.json();
         setTranscripts(data);
 
-        // Set the most recent transcript as the default
         if (data.length > 0) {
           setSelectedTranscript(data[0]);
-          // Reset analysis results when transcripts load initially or symbol changes
-          setAnalysisResults({});
+          setAnalysisResults({}); // Reset analysis on new data/symbol
         }
 
         setLoading(false);
@@ -147,43 +145,42 @@ export default function EarningsCall() {
       title: "Guidance",
       type: "default",
       icon: <Target className="h-4 w-4" />,
-      // Removed showToc: true for guidance
     },
   ];
 
   const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
-  const [activeTab, setActiveTab] = useState("summary"); // Default tab
+  const [activeTab, setActiveTab] = useState("summary");
 
-  // Load custom tabs from user metadata
+  // Load custom tabs
   useEffect(() => {
     const loadCustomTabs = async () => {
       if (!user) {
-        // If no user is logged in, reset to default tabs
+        // Reset to default if no user
         setTabs(defaultTabs);
         return;
       }
 
       try {
-        // Use the user data from the auth context instead of making a new API call
+        // Use auth context user data
         const customTabs = user?.user_metadata?.customTabs || [];
 
-        // Filter out any potential duplicates and ensure type is analysis
+        // Filter for valid, unique custom analysis tabs
         const validCustomTabs = customTabs.filter(
           (tab: TabConfig, index: number, self: TabConfig[]) =>
             tab.type === "analysis" &&
             index === self.findIndex((t) => t.id === tab.id)
         );
 
-        // Reset tabs to default tabs first, then add custom tabs
+        // Combine default and valid custom tabs
         setTabs([
           ...defaultTabs,
           ...validCustomTabs.filter(
-            (ct: TabConfig) => !defaultTabs.some((dt) => dt.id === ct.id)
+            (ct: TabConfig) => !defaultTabs.some((dt) => dt.id === ct.id) // Avoid adding duplicates of defaults
           ),
         ]);
       } catch (error) {
         console.error("Failed to load custom tabs from user metadata:", error);
-        // Fallback to default tabs on error
+        // Fallback on error
         setTabs(defaultTabs);
       }
     };
@@ -191,29 +188,27 @@ export default function EarningsCall() {
     loadCustomTabs();
   }, [symbol, user]);
 
-  // Save custom tabs to user metadata whenever tabs state changes
+  // Save custom tabs to user metadata
   useEffect(() => {
     const saveCustomTabs = async () => {
       if (!user) return;
 
       try {
-        // Filter out default tabs before saving
+        // Filter out default tabs
         const customTabsToSave = tabs.filter(
           (tab) =>
             tab.type === "analysis" &&
             !defaultTabs.some((dt) => dt.id === tab.id)
         );
 
-        // Get current user metadata from the auth context
         const currentMetadata = user?.user_metadata || {};
 
-        // Update metadata with global custom tabs
         const updatedMetadata = {
           ...currentMetadata,
           customTabs: customTabsToSave,
         };
 
-        // Update user metadata
+        // Update Supabase user metadata
         const { error } = await supabase.auth.updateUser({
           data: updatedMetadata,
         });
@@ -227,47 +222,45 @@ export default function EarningsCall() {
       }
     };
 
-    // Only save if there are custom tabs
-    const hasCustomTabs = tabs.some(
-      (tab) =>
-        tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
-    );
-
-    if (hasCustomTabs) {
+    // Save if there are custom tabs (excluding defaults)
+    if (
+      tabs.some(
+        (tab) =>
+          tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
+      )
+    ) {
       saveCustomTabs();
     }
   }, [tabs, user]);
 
-  // Effect to sync URL hash with activeTab state
+  // Sync URL hash with activeTab on mount
   useEffect(() => {
-    const currentHash = window.location.hash.substring(1); // Get hash without '#'
+    const currentHash = window.location.hash.substring(1);
     const isValidTab = defaultTabs.some((tab) => tab.id === currentHash);
     if (isValidTab && currentHash !== activeTab) {
       setActiveTab(currentHash);
     } else if (!isValidTab && activeTab !== "summary") {
-      // If hash is invalid or empty, reset to default tab state
-      // No need to push state here, let the default state handle it.
-      // Optionally, you could reset the hash: router.replace('#summary', { scroll: false });
+      // If hash is invalid or empty, ensure activeTab is the default ('summary')
+      // (The state default handles this, no action needed here unless resetting hash)
     }
-    // We only want to run this check when the component mounts or potentially when defaultTabs changes
+    // Run only on mount (or if defaultTabs could change dynamically)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Consider adding defaultTabs if it can change dynamically
+  }, []);
 
-  // Handler to update state and URL hash on tab change
+  // Update state and URL hash on tab change
   const handleTabChange = (newTabId: string) => {
     setActiveTab(newTabId);
-    router.replace(`#${newTabId}`, { scroll: false }); // Update hash without adding to history
+    router.replace(`#${newTabId}`, { scroll: false }); // Update hash without history entry
   };
 
-  // Navigation handlers
+  // Transcript navigation
   const handlePreviousQuarter = () => {
     const currentIndex = transcripts.findIndex(
       (t) => t.id === selectedTranscript?.id
     );
     if (currentIndex > 0) {
       setSelectedTranscript(transcripts[currentIndex - 1]);
-      // Reset analysis results when transcript changes
-      setAnalysisResults({});
+      setAnalysisResults({}); // Reset analysis on transcript change
     }
   };
 
@@ -277,12 +270,11 @@ export default function EarningsCall() {
     );
     if (currentIndex < transcripts.length - 1) {
       setSelectedTranscript(transcripts[currentIndex + 1]);
-      // Reset analysis results when transcript changes
-      setAnalysisResults({});
+      setAnalysisResults({}); // Reset analysis on transcript change
     }
   };
 
-  // Function to fetch analysis from the streaming endpoint
+  // Fetch analysis from streaming endpoint
   const fetchAnalysis = (tabId: string, url: string) => {
     setAnalysisResults((prev) => ({
       ...prev,
@@ -296,18 +288,16 @@ export default function EarningsCall() {
     let eventSource: EventSource | null = null;
 
     try {
-      // Get the current session token
       const session = supabase.auth.getSession();
       if (!session) {
         throw new Error("No active session");
       }
 
-      // Create EventSource with authorization header
       eventSource = new EventSource(eventSourceUrl, {
-        withCredentials: true,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        withCredentials: true, // Important for cookies/auth
+        // headers: { // Supabase handles auth via cookies with withCredentials: true
+        //   Authorization: `Bearer ${session.access_token}`,
+        // },
       });
     } catch (err) {
       console.error("Failed to create EventSource:", err);
@@ -345,7 +335,7 @@ export default function EarningsCall() {
     return eventSource;
   };
 
-  // --- Modified addCustomTab ---
+  // Add a new custom analysis tab
   const addCustomTab = () => {
     if (newTabName && newTabPrompt) {
       const newTabId = Date.now().toString();
@@ -357,18 +347,14 @@ export default function EarningsCall() {
         showToc: true,
       };
 
-      // Add the new tab to the tabs state
       setTabs((prevTabs) => [...prevTabs, newTab]);
 
-      // Set the new tab as active
       setActiveTab(newTabId);
 
-      // Reset form state
       setNewTabName("");
       setNewTabPrompt("");
       setIsCreateDialogOpen(false);
 
-      // Fetch analysis for the new tab if a transcript is selected
       if (selectedTranscript?.url) {
         fetchAnalysis(newTabId, selectedTranscript.url);
       } else {
@@ -384,7 +370,7 @@ export default function EarningsCall() {
     }
   };
 
-  // --- Edit/Delete Logic ---
+  // Edit/Delete custom tabs
 
   const openEditDialog = (tabId: string) => {
     const tabToEdit = tabs.find((tab) => tab.id === tabId);
@@ -399,7 +385,6 @@ export default function EarningsCall() {
   const handleUpdateTab = () => {
     if (!editingTabId || !editTabName || !editTabPrompt) return;
 
-    // Update the tab in the tabs state
     setTabs((prevTabs) =>
       prevTabs.map((tab) =>
         tab.id === editingTabId
@@ -408,50 +393,42 @@ export default function EarningsCall() {
       )
     );
 
-    // If the currently active tab was edited, re-fetch analysis
+    // Re-fetch analysis if the edited tab is active
     if (activeTab === editingTabId && selectedTranscript?.url) {
-      // Clear previous result before re-fetching
-      setAnalysisResults((prev) => {
-        const newState = { ...prev };
-        delete newState[editingTabId];
-        return newState;
-      });
+      setAnalysisResults((prev) => ({
+        ...prev,
+        [editingTabId]: { content: "", isLoading: true, error: null }, // Reset and mark as loading
+      }));
       fetchAnalysis(editingTabId, selectedTranscript.url);
     }
 
-    // Reset edit state
     setIsEditDialogOpen(false);
     setEditingTabId(null);
-    setEditTabName("");
-    setEditTabPrompt("");
+    // No need to reset editTabName/Prompt, they get set when dialog opens
   };
 
   const handleDeleteTab = (tabId: string) => {
-    // Remove the tab from the tabs state
     setTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
 
-    // Clean up analysis results for the deleted tab
     setAnalysisResults((prev) => {
       const newState = { ...prev };
-      delete newState[tabId];
+      delete newState[tabId]; // Remove analysis result
       return newState;
     });
 
-    // If the deleted tab was active, switch to the summary tab
+    // Switch to summary if the deleted tab was active
     if (activeTab === tabId) {
       setActiveTab("summary");
       router.replace("#summary", { scroll: false });
     }
 
-    // Reset edit state
-    setIsEditDialogOpen(false);
+    setIsEditDialogOpen(false); // Close dialog if open
     setEditingTabId(null);
   };
 
-  // Enhanced extract sections function to handle different markdown formats
+  // Extract H1-H6 headings from markdown for TOC
   const extractSections = (markdown: string): Section[] => {
-    // This regex captures headings both at line start AND within list items
-    const headingRegex = /(?:^|\n)\s*(?:\d+\.\s*)?(#{1,6})\s+(.+)$/gm;
+    const headingRegex = /(?:^|\n)\s*(?:\d+\.\s*)?(#{1,6})\s+(.+)$/gm; // Handles headings at line start or in lists
     const sections: Section[] = [];
     const usedIds = new Set<string>();
     let match;
@@ -485,7 +462,7 @@ export default function EarningsCall() {
     return sections;
   };
 
-  // Get sections based on active tab
+  // Get sections for the currently active tab's content
   const getActiveSections = () => {
     if (!selectedTranscript) return [];
 
@@ -505,59 +482,53 @@ export default function EarningsCall() {
 
   const sections = getActiveSections();
 
-  // Effect to fetch analysis when active tab changes to a custom analysis tab
-  // or when the selected transcript changes while a custom tab is active.
+  // Fetch analysis for custom tabs when they become active or transcript changes
   useEffect(() => {
     const activeTabData = tabs.find((tab) => tab.id === activeTab);
 
     if (
       activeTabData?.type === "analysis" &&
       selectedTranscript?.url &&
-      !analysisResults[activeTab] // Only fetch if not already fetched/fetching for this tab/transcript combo
+      !analysisResults[activeTab]?.content &&
+      !analysisResults[activeTab]?.isLoading // Only fetch if no content and not already loading
     ) {
       const eventSource = fetchAnalysis(activeTab, selectedTranscript.url);
 
-      // Cleanup function to close EventSource when tab changes or component unmounts
+      // Cleanup: close EventSource
       return () => {
         eventSource?.close();
-        // Also explicitly set loading to false for the tab being navigated away from
-        // This prevents a loading state sticking if the stream didn't finish/error correctly
-        setAnalysisResults((prev) => {
-          if (prev[activeTab] && prev[activeTab].isLoading) {
-            return {
-              ...prev,
-              [activeTab]: { ...prev[activeTab], isLoading: false },
-            };
-          }
-          return prev;
-        });
+        // Optional: Mark as not loading if navigating away while loading
+        // setAnalysisResults((prev) => {
+        //   if (prev[activeTab]?.isLoading) {
+        //     return { ...prev, [activeTab]: { ...prev[activeTab], isLoading: false } };
+        //   }
+        //   return prev;
+        // });
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedTranscript, tabs]);
 
-  // Adjusted "On This Page" component styling
+  // "On This Page" Table of Contents component
   const OnThisPage = () => (
     <div className="pl-4 border-l border-slate-200 dark:border-slate-800">
       <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
         On this page
-      </h3>{" "}
-      {/* Adjusted heading style */}
+      </h3>
       <div className="space-y-1.5">
         {sections.map((section) => (
           <a
             key={section.uniqueKey}
             href={`#${section.id}`}
             className={cn(
-              "block text-sm transition-colors duration-150", // Faster transition
+              "block text-sm transition-colors duration-150",
               activeSection === section.id
-                ? "text-blue-600 dark:text-blue-500 font-medium" // Active color
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200" // Default and hover colors
+                ? "text-blue-600 dark:text-blue-500 font-medium"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             )}
             style={{
-              // Level 1 has no padding, each subsequent level adds 0.75rem
               paddingLeft:
-                section.level === 1 ? 0 : `${(section.level - 1) * 0.65}rem`, // Slightly reduced indent
+                section.level === 1 ? 0 : `${(section.level - 1) * 0.65}rem`, // Indent based on heading level
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -575,11 +546,11 @@ export default function EarningsCall() {
     </div>
   );
 
-  // Define types for custom renderers to satisfy TypeScript
+  // Types for custom markdown renderers
   type HeadingProps = React.ComponentPropsWithoutRef<"h1">;
   type TdProps = React.ComponentPropsWithoutRef<"td">;
 
-  // Custom renderer to ensure IDs are applied to headings and add icons to table cells
+  // Custom markdown renderers: apply heading IDs, add icons/styles to table cells
   const MarkdownComponents: React.ComponentProps<
     typeof ReactMarkdown
   >["components"] = {
@@ -590,7 +561,7 @@ export default function EarningsCall() {
     h5: (props: HeadingProps) => <h5 id={props.id || ""} {...props} />,
     h6: (props: HeadingProps) => <h6 id={props.id || ""} {...props} />,
     td: ({ children, ...props }: TdProps) => {
-      // Extract text content from children
+      // Extract raw text content from table cell children
       let textContent = "";
       if (children && Array.isArray(children)) {
         textContent = children
@@ -643,8 +614,7 @@ export default function EarningsCall() {
           break;
       }
 
-      // Ensure props.className is handled correctly even if undefined
-      const cellClassName = cn("px-4 py-2", props.className || "", textColor);
+      const cellClassName = cn("px-4 py-2", props.className, textColor); // Combine base, incoming, and dynamic classes
 
       return (
         <td {...props} className={cellClassName}>
@@ -655,7 +625,7 @@ export default function EarningsCall() {
     },
   };
 
-  // Adjusted loading/error states
+  // Loading and error states
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500 dark:text-slate-400">
@@ -674,26 +644,19 @@ export default function EarningsCall() {
 
   return (
     <>
-      <div className="w-full">
+      <div className="w-full p-6 md:p-8">
         {" "}
-        {/* Ensure full width */}
-        {/* Keep padding */}
-        {/* Adjusted heading size and spacing */}
+        {/* Added padding here */}
         <h1 className="text-3xl font-semibold mb-1 text-slate-900 dark:text-slate-100">
           Earnings Call Analysis
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mb-6">
-          {" "}
-          {/* Adjusted color and margin */}
           Comprehensive analysis of quarterly earnings calls
         </p>
-        {/* Top controls outside of card */}
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4">
-          {" "}
-          {/* Added gap-y-4 for wrapping */}
-          {/* Left side controls: Quarter Nav + PDF */}
+        {/* Top controls */}
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4 gap-x-4">
+          {/* Left side controls */}
           <div className="flex items-center space-x-2">
-            {/* Quarter Nav Buttons */}
             <Button
               variant="outline"
               size="icon"
@@ -704,7 +667,6 @@ export default function EarningsCall() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            {/* Quarter Dropdown */}
             <div className="relative">
               <Button
                 variant="outline"
@@ -743,7 +705,6 @@ export default function EarningsCall() {
               )}
             </div>
 
-            {/* Next Quarter Button */}
             <Button
               variant="outline"
               size="icon"
@@ -757,7 +718,6 @@ export default function EarningsCall() {
               <ChevronRight className="h-4 w-4" />
             </Button>
 
-            {/* PDF Button */}
             <a
               href={selectedTranscript.url}
               target="_blank"
@@ -772,7 +732,7 @@ export default function EarningsCall() {
               </Button>
             </a>
           </div>
-          {/* Right side control: AI Analysis Button (Moved here as direct child) */}
+          {/* Right side control: AI Analysis Button */}
           <Dialog
             open={isCreateDialogOpen}
             onOpenChange={setIsCreateDialogOpen}
@@ -797,7 +757,6 @@ export default function EarningsCall() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                {/* Tab Name Input */}
                 <div className="space-y-2">
                   <label
                     htmlFor="name"
@@ -813,7 +772,6 @@ export default function EarningsCall() {
                     className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
                   />
                 </div>
-                {/* Prompt Textarea */}
                 <div className="space-y-2">
                   <label
                     htmlFor="prompt"
@@ -854,33 +812,26 @@ export default function EarningsCall() {
             </DialogContent>
           </Dialog>
         </div>
-        {/* Adjusted Card styling */}
         <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
-          {" "}
-          {/* Added min-h */}
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange} // Use the new handler
             className="w-full"
           >
-            {/* Made TabsList container sticky */}
-            {/* Adjusted sticky top to account for main header (h-14) and nav (h-11) */}
+            {/* Sticky Tabs Header */}
             <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
+              {" "}
+              {/* Adjust top value based on actual header height */}
               <TabsList className="h-11 bg-transparent justify-start">
-                {" "}
-                {/* Slightly taller */}
-                {/* Tabs List with Edit Buttons */}
+                {/* Tabs List */}
                 {tabs.map((tab) => (
                   <div
                     key={tab.id}
-                    className="relative flex items-center group pr-1"
+                    className="relative flex items-center group pr-1" // Wrapper for edit button positioning
                   >
-                    {" "}
-                    {/* Wrapper + padding for button */}
                     <TabsTrigger
                       value={tab.id}
                       className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                      // Removed pr-7, handled by wrapper padding now
                     >
                       {tab.icon && (
                         <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
@@ -889,28 +840,26 @@ export default function EarningsCall() {
                       )}
                       {tab.title}
                     </TabsTrigger>
-                    {/* Edit button only for custom analysis tabs */}
+                    {/* Edit button for custom analysis tabs */}
                     {tab.type === "analysis" &&
                       !defaultTabs.some((dt) => dt.id === tab.id) && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20" // Adjusted position, added focus visibility
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20"
                           onClick={(e) => {
-                            e.stopPropagation(); // Prevent tab activation
+                            e.stopPropagation(); // Prevent tab trigger activation
                             openEditDialog(tab.id);
                           }}
                           aria-label={`Edit tab ${tab.title}`}
                         >
-                          <Edit className="h-3.5 w-3.5" />{" "}
-                          {/* Slightly larger icon */}
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
                       )}
                   </div>
                 ))}
               </TabsList>
-
-              {/* Regenerate button aligned right, visible only for custom analysis tabs */}
+              {/* Regenerate button (only for custom analysis tabs) */}
               {(() => {
                 const activeTabData = tabs.find((t) => t.id === activeTab);
                 const isCustomAnalysisTab =
@@ -946,22 +895,16 @@ export default function EarningsCall() {
                 );
               })()}
             </div>
-
-            {/* Tab content */}
+            {/* Tab Content Area */}
             {tabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
-                {/* Corrected JSX structure for TabsContent mapping */}
                 <div className="flex p-6 gap-8">
-                  {" "}
-                  {/* Added gap */}
                   <div className="flex-1">
-                    {/* Conditional rendering for default vs custom tabs */}
+                    {/* Main content area */}
                     {tab.id === "summary" ||
                     tab.id === "qa" ||
                     tab.id === "guidance" ? (
                       <div className="pr-6">
-                        {" "}
-                        {/* Removed h-[600px] overflow-y-auto and scrollbar classes */}
                         {tab.id === "guidance" && (
                           <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
                             <span className="font-semibold">Note:</span> The
@@ -988,15 +931,12 @@ export default function EarningsCall() {
                         </div>
                       </div>
                     ) : (
-                      // Custom analysis tab content
-                      <div className="pr-6 relative group">
+                      <div className="pr-6 relative">
                         {analysisResults[tab.id]?.error && (
                           <div className="text-center py-4 text-red-600 dark:text-red-400">
                             Error: {analysisResults[tab.id]?.error}
                           </div>
                         )}
-
-                        {/* Regenerate icon button in top-right */}
 
                         {!analysisResults[tab.id]?.isLoading &&
                           !analysisResults[tab.id]?.error && (
@@ -1021,21 +961,24 @@ export default function EarningsCall() {
                       </div>
                     )}
                   </div>
-                  {/* Table of Contents */}
+                  {/* Table of Contents (Right Sidebar) */}
                   {tab.showToc && sections.length > 0 && (
                     <div className="sticky top-[148px] self-start hidden lg:block w-60 flex-shrink-0">
-                      {/* Adjusted sticky top to be below the sticky tabs bar (100px + 44px + 4px gap) */}
+                      {" "}
+                      {/* Adjust top based on sticky header height */}
                       <OnThisPage />
                     </div>
                   )}
-                </div>
+                </div>{" "}
+                {/* Closes flex container started at 886 */}
               </TabsContent>
-            ))}
+            ))}{" "}
+            {/* Closes map function */}
           </Tabs>
         </Card>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Edit Custom Tab Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
           <DialogHeader>
@@ -1080,30 +1023,26 @@ export default function EarningsCall() {
             </div>
           </div>
           <DialogFooter className="flex justify-between sm:justify-between">
-            {" "}
-            {/* Adjust footer layout */}
-            {/* Delete Button */}
             <Button
               variant="destructive"
               onClick={() => editingTabId && handleDeleteTab(editingTabId)}
-              className="mr-auto" // Push other buttons to the right
-              disabled={!editingTabId} // Disable if no tab is being edited
+              className="mr-auto" // Push delete button to the left
+              disabled={!editingTabId}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
-            {/* Cancel and Save Buttons */}
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => setIsEditDialogOpen(false)} // Just close on cancel
+                onClick={() => setIsEditDialogOpen(false)}
                 className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleUpdateTab}
-                disabled={!editTabName || !editTabPrompt} // Disable if fields are empty
+                disabled={!editTabName || !editTabPrompt}
                 className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
               >
                 Save Changes
@@ -1112,6 +1051,6 @@ export default function EarningsCall() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </> // Closing the main fragment tag
+    </>
   );
 }
