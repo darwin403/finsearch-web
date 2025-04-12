@@ -685,10 +685,7 @@ export default function EarningsCall() {
         <p className="text-slate-600 dark:text-slate-400 mb-6">
           {" "}
           {/* Adjusted color and margin */}
-          Comprehensive analysis of quarterly earnings calls for{" "}
-          <span className="font-medium text-slate-700 dark:text-slate-300">
-            {symbol}
-          </span>
+          Comprehensive analysis of quarterly earnings calls
         </p>
         {/* Top controls outside of card */}
         <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4">

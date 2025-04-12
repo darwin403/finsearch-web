@@ -29,10 +29,7 @@ const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 // Define the sections for navigation
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
-  { id: "financials", title: "Financials", path: "financials" },
-  { id: "risk-factors", title: "Risk Factors", path: "risk-factors" },
-  { id: "management", title: "Management", path: "management" },
-  { id: "concall", title: "Earnings Calls", path: "concall" }, // Updated path to 'concall'
+  { id: "concall", title: "Earnings Calls", path: "concall" },
 ];
 
 // Define the company type for Algolia results
