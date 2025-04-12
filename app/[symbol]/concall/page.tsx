@@ -30,6 +30,7 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
+import { StreamingTextDisplay } from "@/components/shared/streaming-text-display"; // Added import
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
@@ -74,14 +75,7 @@ export default function EarningsCall() {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
   const [editTabPrompt, setEditTabPrompt] = useState("");
-
-  // Store analysis results for custom tabs
-  const [analysisResults, setAnalysisResults] = useState<
-    Record<
-      string,
-      { content: string; isLoading: boolean; error: string | null }
-    >
-  >({});
+  const [regenerateTrigger, setRegenerateTrigger] = useState(0); // Added state for regeneration
 
   // Fetch transcript data
   useEffect(() => {
@@ -97,7 +91,7 @@ export default function EarningsCall() {
 
         if (data.length > 0) {
           setSelectedTranscript(data[0]);
-          setAnalysisResults({}); // Reset analysis on new data/symbol
+          // No longer need to reset analysisResults here
         }
 
         setLoading(false);
@@ -245,7 +239,7 @@ export default function EarningsCall() {
     );
     if (currentIndex > 0) {
       setSelectedTranscript(transcripts[currentIndex - 1]);
-      setAnalysisResults({}); // Reset analysis on transcript change
+      // No longer need to reset analysisResults here
     }
   };
 
@@ -255,70 +249,11 @@ export default function EarningsCall() {
     );
     if (currentIndex < transcripts.length - 1) {
       setSelectedTranscript(transcripts[currentIndex + 1]);
-      setAnalysisResults({}); // Reset analysis on transcript change
+      // No longer need to reset analysisResults here
     }
   };
 
-  // Fetch analysis from streaming endpoint
-  const fetchAnalysis = (tabId: string, url: string) => {
-    setAnalysisResults((prev) => ({
-      ...prev,
-      [tabId]: { content: "", isLoading: true, error: null },
-    }));
-
-    const eventSourceUrl = `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
-      url
-    )}&tab_id=${encodeURIComponent(tabId)}`;
-
-    let eventSource: EventSource | null = null;
-
-    try {
-      const session = supabase.auth.getSession();
-      if (!session) {
-        throw new Error("No active session");
-      }
-
-      eventSource = new EventSource(eventSourceUrl, {
-        withCredentials: true, // Important for cookies/auth
-        // headers: { // Supabase handles auth via cookies with withCredentials: true
-        //   Authorization: `Bearer ${session.access_token}`,
-        // },
-      });
-    } catch (err) {
-      console.error("Failed to create EventSource:", err);
-      setAnalysisResults((prev) => ({
-        ...prev,
-        [tabId]: {
-          ...prev[tabId],
-          isLoading: false,
-          error: "Failed to create connection to analysis service.",
-        },
-      }));
-      return null;
-    }
-
-    eventSource.onmessage = (event) => {
-      try {
-        setAnalysisResults((prev) => ({
-          ...prev,
-          [tabId]: {
-            ...prev[tabId],
-            content: (prev[tabId]?.content || "") + JSON.parse(event.data),
-            isLoading: false,
-          },
-        }));
-      } catch (e) {
-        console.error("Error processing stream data:", e);
-      }
-    };
-
-    eventSource.onerror = async (error) => {
-      console.error("EventSource failed. Event:", error);
-      eventSource?.close();
-    };
-
-    return eventSource;
-  };
+  // Removed fetchAnalysis function and analysisResults state management
 
   // Add a new custom analysis tab
   const addCustomTab = () => {
@@ -340,18 +275,7 @@ export default function EarningsCall() {
       setNewTabPrompt("");
       setIsCreateDialogOpen(false);
 
-      if (selectedTranscript?.url) {
-        fetchAnalysis(newTabId, selectedTranscript.url);
-      } else {
-        setAnalysisResults((prev) => ({
-          ...prev,
-          [newTabId]: {
-            content: "",
-            isLoading: false,
-            error: "Cannot fetch analysis: No transcript selected.",
-          },
-        }));
-      }
+      // Analysis is now handled by StreamingTextDisplay when the tab becomes active
     }
   };
 
@@ -378,13 +302,9 @@ export default function EarningsCall() {
       )
     );
 
-    // Re-fetch analysis if the edited tab is active
-    if (activeTab === editingTabId && selectedTranscript?.url) {
-      setAnalysisResults((prev) => ({
-        ...prev,
-        [editingTabId]: { content: "", isLoading: true, error: null }, // Reset and mark as loading
-      }));
-      fetchAnalysis(editingTabId, selectedTranscript.url);
+    // If the edited tab is active, trigger regeneration by updating the key
+    if (activeTab === editingTabId) {
+      setRegenerateTrigger(Date.now());
     }
 
     setIsEditDialogOpen(false);
@@ -395,11 +315,7 @@ export default function EarningsCall() {
   const handleDeleteTab = (tabId: string) => {
     setTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
 
-    setAnalysisResults((prev) => {
-      const newState = { ...prev };
-      delete newState[tabId]; // Remove analysis result
-      return newState;
-    });
+    // No need to manage analysisResults state here anymore
 
     // Switch to summary if the deleted tab was active
     if (activeTab === tabId) {
@@ -411,32 +327,7 @@ export default function EarningsCall() {
     setEditingTabId(null);
   };
 
-  // Fetch analysis for custom tabs when they become active or transcript changes
-  useEffect(() => {
-    const activeTabData = tabs.find((tab) => tab.id === activeTab);
-
-    if (
-      activeTabData?.type === "analysis" &&
-      selectedTranscript?.url &&
-      !analysisResults[activeTab]?.content &&
-      !analysisResults[activeTab]?.isLoading // Only fetch if no content and not already loading
-    ) {
-      const eventSource = fetchAnalysis(activeTab, selectedTranscript.url);
-
-      // Cleanup: close EventSource
-      return () => {
-        eventSource?.close();
-        // Optional: Mark as not loading if navigating away while loading
-        // setAnalysisResults((prev) => {
-        //   if (prev[activeTab]?.isLoading) {
-        //     return { ...prev, [activeTab]: { ...prev[activeTab], isLoading: false } };
-        //   }
-        //   return prev;
-        // });
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedTranscript, tabs]);
+  // Removed useEffect hook for fetching analysis; StreamingTextDisplay handles its own fetching.
 
   // Loading and error states
   if (loading) {
@@ -507,7 +398,7 @@ export default function EarningsCall() {
                         onClick={() => {
                           setSelectedTranscript(transcript);
                           setShowQuarterDropdown(false);
-                          setAnalysisResults({});
+                          // No longer need to reset analysisResults here
                         }}
                       >
                         {transcript.fiscal_quarter} ({transcript.date})
@@ -688,18 +579,8 @@ export default function EarningsCall() {
                     variant="outline"
                     className="flex items-center gap-1 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     onClick={() => {
-                      if (activeTabData?.prompt && selectedTranscript?.url) {
-                        // Clear previous result before re-fetching
-                        setAnalysisResults((prev) => ({
-                          ...prev,
-                          [activeTab]: {
-                            content: "",
-                            isLoading: true,
-                            error: null,
-                          },
-                        }));
-                        fetchAnalysis(activeTab, selectedTranscript.url);
-                      }
+                      // Trigger regeneration by updating the state variable
+                      setRegenerateTrigger(Date.now());
                     }}
                   >
                     <RefreshCcw className="h-4 w-4" />
@@ -740,32 +621,23 @@ export default function EarningsCall() {
                       />
                     </>
                   ) : (
-                    <div className="relative">
-                      {analysisResults[tab.id]?.error && (
-                        <div className="text-center py-4 text-red-600 dark:text-red-400">
-                          Error: {analysisResults[tab.id]?.error}
-                        </div>
-                      )}
+                    // Use the new StreamingTextDisplay component
+                    (() => {
+                      const analysisUrl = selectedTranscript?.url
+                        ? `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
+                            selectedTranscript.url
+                          )}&tab_id=${encodeURIComponent(tab.id)}`
+                        : "";
 
-                      {!analysisResults[tab.id]?.isLoading &&
-                        !analysisResults[tab.id]?.error && (
-                          <MarkdownDisplay
-                            markdownContent={
-                              analysisResults[tab.id]?.content ||
-                              "No analysis generated yet."
-                            }
-                            showToc={tab.showToc}
-                            className="pr-6" // Add padding to the right if needed
-                          />
-                        )}
-
-                      {analysisResults[tab.id]?.isLoading && (
-                        <div className="flex flex-col items-center justify-center py-8 text-slate-500 dark:text-slate-400">
-                          <RefreshCcw className="h-6 w-6 mb-2 animate-spin" />
-                          <span>Generating analysis...</span>
-                        </div>
-                      )}
-                    </div>
+                      return (
+                        <StreamingTextDisplay
+                          key={`${tab.id}-${regenerateTrigger}`} // Force re-mount on regenerate or tab change
+                          eventSourceUrl={analysisUrl}
+                          showToc={tab.showToc}
+                          className="pr-6"
+                        />
+                      );
+                    })()
                   )}
                 </div>
               </TabsContent>
