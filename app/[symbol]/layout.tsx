@@ -68,8 +68,10 @@ function SymbolLayoutContent({
           >
             IndiaStocks
           </Link>
-          {/* Search */}
-          <CompanySearchBox onCompanySelect={handleCompanySelect} />
+          {/* Search - Wrap in a div that grows and centers the content */}
+          <div className="flex-1 flex justify-center">
+            <CompanySearchBox onCompanySelect={handleCompanySelect} />
+          </div>
           {/* Auth & Theme */}
           <div className="flex items-center gap-3">
             {loading ? (
