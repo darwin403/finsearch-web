@@ -25,18 +25,11 @@ import {
   MessageSquare,
   Target,
   ChevronDown,
-  ArrowUp,
-  ArrowDown,
-  Minus,
-  Plus,
   Edit,
   Trash2,
   RefreshCcw,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import rehypeSlug from "rehype-slug";
-import remarkGfm from "remark-gfm";
-import cn from "classnames";
+import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
@@ -63,13 +56,6 @@ interface TabConfig {
   showToc?: boolean;
 }
 
-interface Section {
-  id: string;
-  title: string;
-  level: number;
-  uniqueKey: string;
-}
-
 export default function EarningsCall() {
   const params = useParams();
   const symbol = (params.symbol as string) || "UNKNOWN";
@@ -83,7 +69,6 @@ export default function EarningsCall() {
   const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
   const [newTabName, setNewTabName] = useState("");
   const [newTabPrompt, setNewTabPrompt] = useState("");
-  const [activeSection, setActiveSection] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -426,62 +411,6 @@ export default function EarningsCall() {
     setEditingTabId(null);
   };
 
-  // Extract H1-H6 headings from markdown for TOC
-  const extractSections = (markdown: string): Section[] => {
-    const headingRegex = /(?:^|\n)\s*(?:\d+\.\s*)?(#{1,6})\s+(.+)$/gm; // Handles headings at line start or in lists
-    const sections: Section[] = [];
-    const usedIds = new Set<string>();
-    let match;
-
-    while ((match = headingRegex.exec(markdown)) !== null) {
-      const level = match[1].length;
-      const title = match[2].trim();
-      const id = title
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/\s+/g, "-");
-
-      let uniqueId = id;
-      let counter = 1;
-
-      while (usedIds.has(uniqueId)) {
-        uniqueId = `${id}-${counter}`;
-        counter++;
-      }
-
-      usedIds.add(uniqueId);
-
-      sections.push({
-        id: uniqueId,
-        title,
-        level,
-        uniqueKey: `section-${sections.length}`,
-      });
-    }
-
-    return sections;
-  };
-
-  // Get sections for the currently active tab's content
-  const getActiveSections = () => {
-    if (!selectedTranscript) return [];
-
-    if (activeTab === "summary") {
-      return extractSections(selectedTranscript.summary);
-    } else if (activeTab === "qa" && selectedTranscript.qna) {
-      return extractSections(selectedTranscript.qna);
-    } else if (
-      activeTab === "guidance" &&
-      selectedTranscript.guidance_changes
-    ) {
-      return extractSections(selectedTranscript.guidance_changes);
-    }
-
-    return [];
-  };
-
-  const sections = getActiveSections();
-
   // Fetch analysis for custom tabs when they become active or transcript changes
   useEffect(() => {
     const activeTabData = tabs.find((tab) => tab.id === activeTab);
@@ -508,122 +437,6 @@ export default function EarningsCall() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedTranscript, tabs]);
-
-  // "On This Page" Table of Contents component
-  const OnThisPage = () => (
-    <div className="pl-4 border-l border-slate-200 dark:border-slate-800">
-      <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-        On this page
-      </h3>
-      <div className="space-y-1.5">
-        {sections.map((section) => (
-          <a
-            key={section.uniqueKey}
-            href={`#${section.id}`}
-            className={cn(
-              "block text-sm transition-colors duration-150",
-              activeSection === section.id
-                ? "text-blue-600 dark:text-blue-500 font-medium"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-            )}
-            style={{
-              paddingLeft:
-                section.level === 1 ? 0 : `${(section.level - 1) * 0.65}rem`, // Indent based on heading level
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveSection(section.id);
-              document.getElementById(section.id)?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
-            }}
-          >
-            {section.title}
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-
-  // Types for custom markdown renderers
-  type HeadingProps = React.ComponentPropsWithoutRef<"h1">;
-  type TdProps = React.ComponentPropsWithoutRef<"td">;
-
-  // Custom markdown renderers: apply heading IDs, add icons/styles to table cells
-  const MarkdownComponents: React.ComponentProps<
-    typeof ReactMarkdown
-  >["components"] = {
-    h1: (props: HeadingProps) => <h1 id={props.id || ""} {...props} />,
-    h2: (props: HeadingProps) => <h2 id={props.id || ""} {...props} />,
-    h3: (props: HeadingProps) => <h3 id={props.id || ""} {...props} />,
-    h4: (props: HeadingProps) => <h4 id={props.id || ""} {...props} />,
-    h5: (props: HeadingProps) => <h5 id={props.id || ""} {...props} />,
-    h6: (props: HeadingProps) => <h6 id={props.id || ""} {...props} />,
-    td: ({ children, ...props }: TdProps) => {
-      // Extract raw text content from table cell children
-      let textContent = "";
-      if (children && Array.isArray(children)) {
-        textContent = children
-          .map((child) => {
-            if (typeof child === "string") {
-              return child;
-            }
-            if (
-              typeof child === "object" &&
-              child !== null &&
-              "props" in child &&
-              child.props.children
-            ) {
-              return String(child.props.children);
-            }
-            return "";
-          })
-          .join("")
-          .toLowerCase()
-          .trim();
-      } else if (typeof children === "string") {
-        textContent = children.toLowerCase().trim();
-      }
-
-      let icon = null;
-      let textColor = "";
-
-      switch (textContent) {
-        case "raised":
-          icon = (
-            <ArrowUp className="h-4 w-4 mr-1 inline-block text-green-600" />
-          );
-          textColor = "text-green-700 dark:text-green-500 font-medium";
-          break;
-        case "lowered":
-          icon = (
-            <ArrowDown className="h-4 w-4 mr-1 inline-block text-red-600" />
-          );
-          textColor = "text-red-700 dark:text-red-500 font-medium";
-          break;
-        case "maintained":
-          icon = <Minus className="h-4 w-4 mr-1 inline-block text-gray-500" />;
-          textColor = "text-slate-600 dark:text-slate-400";
-          break;
-        case "new":
-          icon = <Plus className="h-4 w-4 mr-1 inline-block text-blue-600" />;
-          textColor = "text-blue-700 dark:text-blue-500 font-medium";
-          break;
-        default:
-          break;
-      }
-
-      const cellClassName = cn("px-4 py-2", props.className, textColor); // Combine base, incoming, and dynamic classes
-
-      return (
-        <td {...props} className={cellClassName}>
-          {icon}
-          {children}
-        </td>
-      );
-    },
-  };
 
   // Loading and error states
   if (loading) {
@@ -898,79 +711,63 @@ export default function EarningsCall() {
             {/* Tab Content Area */}
             {tabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
-                <div className="flex p-6 gap-8">
-                  <div className="flex-1">
-                    {/* Main content area */}
-                    {tab.id === "summary" ||
-                    tab.id === "qa" ||
-                    tab.id === "guidance" ? (
-                      <div className="pr-6">
-                        {tab.id === "guidance" && (
-                          <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
-                            <span className="font-semibold">Note:</span> The
-                            &ldquo;Previous Guidance&rdquo; column currently
-                            does not reflect data from previous quarters&apos;
-                            earnings transcripts. This feature will be added in
-                            a future version.
-                          </div>
-                        )}
-                        <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeSlug]}
-                            components={MarkdownComponents}
-                          >
-                            {tab.id === "summary"
-                              ? selectedTranscript.summary
-                              : tab.id === "qa"
-                              ? selectedTranscript.qna ||
-                                "No Q&A data available."
-                              : selectedTranscript.guidance_changes ||
-                                "No Guidance data available."}
-                          </ReactMarkdown>
+                <div className="p-6">
+                  {/* Main content area */}
+                  {tab.id === "summary" ||
+                  tab.id === "qa" ||
+                  tab.id === "guidance" ? (
+                    <>
+                      {tab.id === "guidance" && (
+                        <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
+                          <span className="font-semibold">Note:</span> The
+                          &ldquo;Previous Guidance&rdquo; column currently does
+                          not reflect data from previous quarters&apos; earnings
+                          transcripts. This feature will be added in a future
+                          version.
                         </div>
-                      </div>
-                    ) : (
-                      <div className="pr-6 relative">
-                        {analysisResults[tab.id]?.error && (
-                          <div className="text-center py-4 text-red-600 dark:text-red-400">
-                            Error: {analysisResults[tab.id]?.error}
-                          </div>
+                      )}
+                      <MarkdownDisplay
+                        markdownContent={
+                          tab.id === "summary"
+                            ? selectedTranscript.summary
+                            : tab.id === "qa"
+                            ? selectedTranscript.qna || "No Q&A data available."
+                            : selectedTranscript.guidance_changes ||
+                              "No Guidance data available."
+                        }
+                        showToc={tab.showToc}
+                        className="pr-6" // Add padding to the right if needed, or handle within MarkdownDisplay
+                      />
+                    </>
+                  ) : (
+                    <div className="relative">
+                      {analysisResults[tab.id]?.error && (
+                        <div className="text-center py-4 text-red-600 dark:text-red-400">
+                          Error: {analysisResults[tab.id]?.error}
+                        </div>
+                      )}
+
+                      {!analysisResults[tab.id]?.isLoading &&
+                        !analysisResults[tab.id]?.error && (
+                          <MarkdownDisplay
+                            markdownContent={
+                              analysisResults[tab.id]?.content ||
+                              "No analysis generated yet."
+                            }
+                            showToc={tab.showToc}
+                            className="pr-6" // Add padding to the right if needed
+                          />
                         )}
 
-                        {!analysisResults[tab.id]?.isLoading &&
-                          !analysisResults[tab.id]?.error && (
-                            <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeSlug]}
-                                components={MarkdownComponents}
-                              >
-                                {analysisResults[tab.id]?.content ||
-                                  "No analysis generated yet."}
-                              </ReactMarkdown>
-                            </div>
-                          )}
-
-                        {analysisResults[tab.id]?.isLoading && (
-                          <div className="flex flex-col items-center justify-center py-8 text-slate-500 dark:text-slate-400">
-                            <RefreshCcw className="h-6 w-6 mb-2 animate-spin" />
-                            <span>Generating analysis...</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {/* Table of Contents (Right Sidebar) */}
-                  {tab.showToc && sections.length > 0 && (
-                    <div className="sticky top-[148px] self-start hidden lg:block w-60 flex-shrink-0">
-                      {" "}
-                      {/* Adjust top based on sticky header height */}
-                      <OnThisPage />
+                      {analysisResults[tab.id]?.isLoading && (
+                        <div className="flex flex-col items-center justify-center py-8 text-slate-500 dark:text-slate-400">
+                          <RefreshCcw className="h-6 w-6 mb-2 animate-spin" />
+                          <span>Generating analysis...</span>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>{" "}
-                {/* Closes flex container started at 886 */}
+                </div>
               </TabsContent>
             ))}{" "}
             {/* Closes map function */}
