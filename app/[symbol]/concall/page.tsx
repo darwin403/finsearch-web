@@ -37,6 +37,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm"; // Import remark-gfm
 import cn from "classnames";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 
 interface Transcript {
   url: string;
@@ -47,9 +49,9 @@ interface Transcript {
   parsed: boolean;
   symbol: string;
   date_dt: string;
-  fiscal_period: Record<string, any>;
+  fiscal_period: Record<string, unknown>;
   fiscal_quarter: string;
-  guidance_changes?: string; // Added guidance_changes field
+  guidance_changes?: string;
 }
 
 interface TabConfig {
@@ -72,6 +74,7 @@ export default function EarningsCall() {
   const params = useParams();
   const symbol = (params.symbol as string) || "UNKNOWN"; // Type assertion for symbol
   const router = useRouter(); // Initialize router
+  const { user } = useAuth();
 
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,67 +154,89 @@ export default function EarningsCall() {
   const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
   const [activeTab, setActiveTab] = useState("summary"); // Default tab
 
-  // --- Local Storage Logic --- Moved Here ---
-
-  const getLocalStorageKey = (sym: string) => `customAnalysisTabs_${sym}`;
-
-  // Load custom tabs from local storage
+  // Load custom tabs from user metadata
   useEffect(() => {
-    if (typeof window !== "undefined" && symbol !== "UNKNOWN") {
-      const key = getLocalStorageKey(symbol);
+    const loadCustomTabs = async () => {
+      if (!user) {
+        // If no user is logged in, reset to default tabs
+        setTabs(defaultTabs);
+        return;
+      }
+
       try {
-        const storedTabsJson = localStorage.getItem(key);
-        if (storedTabsJson) {
-          const loadedCustomTabs: TabConfig[] = JSON.parse(storedTabsJson);
-          // Filter out any potential duplicates just in case and ensure type is analysis
-          const validCustomTabs = loadedCustomTabs.filter(
-            (tab, index, self) =>
-              tab.type === "analysis" &&
-              index === self.findIndex((t) => t.id === tab.id)
-          );
-          // Combine default tabs with valid loaded custom tabs, prevent duplicates
-          // Use functional update for setTabs based on defaultTabs
-          setTabs((prevDefaultTabs) => [
-            ...prevDefaultTabs,
-            ...validCustomTabs.filter(
-              (ct) => !prevDefaultTabs.some((dt) => dt.id === ct.id)
-            ),
-          ]);
-        } else {
-          // No stored tabs, just use defaults (already set by useState)
-          // setTabs(defaultTabs); // No need to set again if useState initializes correctly
+        // Use the user data from the auth context instead of making a new API call
+        const customTabs = user?.user_metadata?.customTabs || [];
+
+        // Filter out any potential duplicates and ensure type is analysis
+        const validCustomTabs = customTabs.filter(
+          (tab: TabConfig, index: number, self: TabConfig[]) =>
+            tab.type === "analysis" &&
+            index === self.findIndex((t) => t.id === tab.id)
+        );
+
+        // Reset tabs to default tabs first, then add custom tabs
+        setTabs([
+          ...defaultTabs,
+          ...validCustomTabs.filter(
+            (ct: TabConfig) => !defaultTabs.some((dt) => dt.id === ct.id)
+          ),
+        ]);
+      } catch (error) {
+        console.error("Failed to load custom tabs from user metadata:", error);
+        // Fallback to default tabs on error
+        setTabs(defaultTabs);
+      }
+    };
+
+    loadCustomTabs();
+  }, [symbol, user]);
+
+  // Save custom tabs to user metadata whenever tabs state changes
+  useEffect(() => {
+    const saveCustomTabs = async () => {
+      if (!user) return;
+
+      try {
+        // Filter out default tabs before saving
+        const customTabsToSave = tabs.filter(
+          (tab) =>
+            tab.type === "analysis" &&
+            !defaultTabs.some((dt) => dt.id === tab.id)
+        );
+
+        // Get current user metadata from the auth context
+        const currentMetadata = user?.user_metadata || {};
+
+        // Update metadata with global custom tabs
+        const updatedMetadata = {
+          ...currentMetadata,
+          customTabs: customTabsToSave,
+        };
+
+        // Update user metadata
+        const { error } = await supabase.auth.updateUser({
+          data: updatedMetadata,
+        });
+
+        if (error) {
+          console.error("Error updating user metadata:", error);
+          throw error;
         }
       } catch (error) {
-        console.error("Failed to load custom tabs from local storage:", error);
-        // setTabs(defaultTabs); // Fallback handled by initial useState
+        console.error("Failed to save custom tabs to user metadata:", error);
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]); // Reload when symbol changes
+    };
 
-  // Save custom tabs to local storage whenever tabs state changes
-  useEffect(() => {
-    if (typeof window !== "undefined" && symbol !== "UNKNOWN") {
-      const key = getLocalStorageKey(symbol);
-      // Filter out default tabs before saving
-      const customTabsToSave = tabs.filter(
-        (tab) =>
-          tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
-      );
-      try {
-        // Only save if there are custom tabs to prevent overwriting with empty array unnecessarily
-        if (customTabsToSave.length > 0) {
-          localStorage.setItem(key, JSON.stringify(customTabsToSave));
-        } else {
-          // If no custom tabs exist, remove the key from local storage
-          localStorage.removeItem(key);
-        }
-      } catch (error) {
-        console.error("Failed to save custom tabs to local storage:", error);
-      }
+    // Only save if there are custom tabs
+    const hasCustomTabs = tabs.some(
+      (tab) =>
+        tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
+    );
+
+    if (hasCustomTabs) {
+      saveCustomTabs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs, symbol]); // Save whenever tabs or symbol changes
+  }, [tabs, user]);
 
   // Effect to sync URL hash with activeTab state
   useEffect(() => {
@@ -258,7 +283,7 @@ export default function EarningsCall() {
   };
 
   // Function to fetch analysis from the streaming endpoint
-  const fetchAnalysis = (tabId: string, url: string, prompt: string) => {
+  const fetchAnalysis = (tabId: string, url: string) => {
     setAnalysisResults((prev) => ({
       ...prev,
       [tabId]: { content: "", isLoading: true, error: null },
@@ -266,14 +291,24 @@ export default function EarningsCall() {
 
     const eventSourceUrl = `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
       url
-    )}&system_prompt=${encodeURIComponent(prompt)}`;
-
-    // const eventSourceUrl = `http://localhost:8000/events`;
+    )}&tab_id=${encodeURIComponent(tabId)}`;
 
     let eventSource: EventSource | null = null;
 
     try {
-      eventSource = new EventSource(eventSourceUrl);
+      // Get the current session token
+      const session = supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+
+      // Create EventSource with authorization header
+      eventSource = new EventSource(eventSourceUrl, {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
     } catch (err) {
       console.error("Failed to create EventSource:", err);
       setAnalysisResults((prev) => ({
@@ -322,14 +357,20 @@ export default function EarningsCall() {
         showToc: true,
       };
 
-      setTabs((prevTabs) => [...prevTabs, newTab]); // Use functional update
+      // Add the new tab to the tabs state
+      setTabs((prevTabs) => [...prevTabs, newTab]);
+
+      // Set the new tab as active
       setActiveTab(newTabId);
+
+      // Reset form state
       setNewTabName("");
       setNewTabPrompt("");
-      setIsCreateDialogOpen(false); // Close the dialog - THIS LINE WAS ALREADY PRESENT, ensuring it stays
+      setIsCreateDialogOpen(false);
 
+      // Fetch analysis for the new tab if a transcript is selected
       if (selectedTranscript?.url) {
-        fetchAnalysis(newTabId, selectedTranscript.url, newTab.prompt!);
+        fetchAnalysis(newTabId, selectedTranscript.url);
       } else {
         setAnalysisResults((prev) => ({
           ...prev,
@@ -358,6 +399,7 @@ export default function EarningsCall() {
   const handleUpdateTab = () => {
     if (!editingTabId || !editTabName || !editTabPrompt) return;
 
+    // Update the tab in the tabs state
     setTabs((prevTabs) =>
       prevTabs.map((tab) =>
         tab.id === editingTabId
@@ -374,9 +416,10 @@ export default function EarningsCall() {
         delete newState[editingTabId];
         return newState;
       });
-      fetchAnalysis(editingTabId, selectedTranscript.url, editTabPrompt);
+      fetchAnalysis(editingTabId, selectedTranscript.url);
     }
 
+    // Reset edit state
     setIsEditDialogOpen(false);
     setEditingTabId(null);
     setEditTabName("");
@@ -384,19 +427,24 @@ export default function EarningsCall() {
   };
 
   const handleDeleteTab = (tabId: string) => {
+    // Remove the tab from the tabs state
     setTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
+
     // Clean up analysis results for the deleted tab
     setAnalysisResults((prev) => {
       const newState = { ...prev };
       delete newState[tabId];
       return newState;
     });
+
     // If the deleted tab was active, switch to the summary tab
     if (activeTab === tabId) {
       setActiveTab("summary");
       router.replace("#summary", { scroll: false });
     }
-    setIsEditDialogOpen(false); // Close edit dialog if open for this tab
+
+    // Reset edit state
+    setIsEditDialogOpen(false);
     setEditingTabId(null);
   };
 
@@ -411,7 +459,7 @@ export default function EarningsCall() {
     while ((match = headingRegex.exec(markdown)) !== null) {
       const level = match[1].length;
       const title = match[2].trim();
-      let id = title
+      const id = title
         .toLowerCase()
         .replace(/[^\w\s-]/g, "")
         .replace(/\s+/g, "-");
@@ -464,15 +512,10 @@ export default function EarningsCall() {
 
     if (
       activeTabData?.type === "analysis" &&
-      activeTabData.prompt &&
       selectedTranscript?.url &&
       !analysisResults[activeTab] // Only fetch if not already fetched/fetching for this tab/transcript combo
     ) {
-      const eventSource = fetchAnalysis(
-        activeTab,
-        selectedTranscript.url,
-        activeTabData.prompt
-      );
+      const eventSource = fetchAnalysis(activeTab, selectedTranscript.url);
 
       // Cleanup function to close EventSource when tab changes or component unmounts
       return () => {
@@ -491,7 +534,7 @@ export default function EarningsCall() {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedTranscript, tabs]); // Dependencies: analysisResults removed to avoid re-triggering during stream
+  }, [activeTab, selectedTranscript, tabs]);
 
   // Adjusted "On This Page" component styling
   const OnThisPage = () => (
@@ -532,34 +575,21 @@ export default function EarningsCall() {
     </div>
   );
 
-  // Custom renderer to ensure IDs are applied to headings even in list items
-  // Custom renderer to ensure IDs are applied to headings and add icons to table cells
   // Define types for custom renderers to satisfy TypeScript
-  type HeadingProps = React.ComponentPropsWithoutRef<"h1"> & { node?: any }; // Use 'any' for node if specific type is complex/unknown
-  type TdProps = React.ComponentPropsWithoutRef<"td"> & { node?: any };
-  // Corrected MarkdownComponents definition
+  type HeadingProps = React.ComponentPropsWithoutRef<"h1">;
+  type TdProps = React.ComponentPropsWithoutRef<"td">;
+
+  // Custom renderer to ensure IDs are applied to headings and add icons to table cells
   const MarkdownComponents: React.ComponentProps<
     typeof ReactMarkdown
   >["components"] = {
-    h1: ({ node, ...props }: HeadingProps) => (
-      <h1 id={props.id || ""} {...props} />
-    ),
-    h2: ({ node, ...props }: HeadingProps) => (
-      <h2 id={props.id || ""} {...props} />
-    ),
-    h3: ({ node, ...props }: HeadingProps) => (
-      <h3 id={props.id || ""} {...props} />
-    ),
-    h4: ({ node, ...props }: HeadingProps) => (
-      <h4 id={props.id || ""} {...props} />
-    ),
-    h5: ({ node, ...props }: HeadingProps) => (
-      <h5 id={props.id || ""} {...props} />
-    ),
-    h6: ({ node, ...props }: HeadingProps) => (
-      <h6 id={props.id || ""} {...props} />
-    ),
-    td: ({ node, children, ...props }: TdProps) => {
+    h1: (props: HeadingProps) => <h1 id={props.id || ""} {...props} />,
+    h2: (props: HeadingProps) => <h2 id={props.id || ""} {...props} />,
+    h3: (props: HeadingProps) => <h3 id={props.id || ""} {...props} />,
+    h4: (props: HeadingProps) => <h4 id={props.id || ""} {...props} />,
+    h5: (props: HeadingProps) => <h5 id={props.id || ""} {...props} />,
+    h6: (props: HeadingProps) => <h6 id={props.id || ""} {...props} />,
+    td: ({ children, ...props }: TdProps) => {
       // Extract text content from children
       let textContent = "";
       if (children && Array.isArray(children)) {
@@ -909,11 +939,7 @@ export default function EarningsCall() {
                             error: null,
                           },
                         }));
-                        fetchAnalysis(
-                          activeTab,
-                          selectedTranscript.url,
-                          activeTabData.prompt
-                        );
+                        fetchAnalysis(activeTab, selectedTranscript.url);
                       }
                     }}
                   >
@@ -942,10 +968,10 @@ export default function EarningsCall() {
                         {tab.id === "guidance" && (
                           <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
                             <span className="font-semibold">Note:</span> The
-                            "Previous Guidance" column currently does not
-                            reflect data from previous quarters' earnings
-                            transcripts. This feature will be added in a future
-                            version.
+                            &ldquo;Previous Guidance&rdquo; column currently
+                            does not reflect data from previous quarters&apos;
+                            earnings transcripts. This feature will be added in
+                            a future version.
                           </div>
                         )}
                         <div className="prose prose-slate dark:prose-invert prose-headings:font-semibold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:scroll-mt-28 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline prose-strong:text-slate-700 dark:prose-strong:text-slate-300 prose-code:before:content-none prose-code:after:content-none prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-normal prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-700 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 max-w-none">

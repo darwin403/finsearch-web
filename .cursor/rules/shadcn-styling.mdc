@@ -3,4 +3,4 @@ description:
 globs: 
 alwaysApply: true
 ---
- The design uses shadcn and tialwind. The design choices and components should always be very clean and aesthetic in appeal to the end user that optimizes minimum clicks to get a feature working.
+ The design uses shadcn and tailwind css. The design choices and components should always be very clean and aesthetic in appeal to the end user that optimizes minimum clicks to get a feature working.

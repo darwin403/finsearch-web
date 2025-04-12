@@ -10,9 +10,13 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation"; // Import useRouter and usePathname
-import { algoliasearch } from "algoliasearch"; // Import Algolia client
+import { algoliasearch } from "algoliasearch";
+import type { SearchResponse } from "@algolia/client-search";
 import { Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle"; // Import ThemeToggle
+import { LoginDialog } from "@/components/auth/login-dialog"; // Import LoginDialog
+import { UserProfile } from "@/components/auth/user-profile"; // Import UserProfile
+import { AuthProvider, useAuth } from "@/lib/auth-context"; // Import AuthProvider and useAuth
 
 // Algolia configuration
 const ALGOLIA_APP_ID = "WP3HSGTPKW";
@@ -31,7 +35,14 @@ const sections = [
   { id: "concall", title: "Earnings Calls", path: "concall" }, // Updated path to 'concall'
 ];
 
-export default function SymbolLayout({
+// Define the company type for Algolia results
+interface Company {
+  objectID: string;
+  symbol: string;
+  name: string;
+}
+
+function SymbolLayoutContent({
   children,
   params, // Add params to get the symbol
 }: {
@@ -41,8 +52,10 @@ export default function SymbolLayout({
   const resolvedParams = use(params); // Unwrap the params promise
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
-  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]); // State for Algolia results
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]); // State for Algolia results
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const { user, loading } = useAuth();
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,30 +71,20 @@ export default function SymbolLayout({
   // Fetch companies from Algolia based on search query
   useEffect(() => {
     if (searchQuery.trim() !== "") {
-      searchClient
-        .search({
-          requests: [
-            {
-              indexName: ALGOLIA_INDEX_NAME,
-              query: searchQuery,
-              hitsPerPage: 10, // Limit results
-            },
-          ],
+      const searchIndex = searchClient.initIndex(ALGOLIA_INDEX_NAME);
+      searchIndex
+        .search<Company>(searchQuery, {
+          hitsPerPage: 10,
         })
-        .then(({ results }: { results: any[] }) => {
-          if (results && results[0] && results[0].hits) {
-            setFilteredCompanies(results[0].hits);
-            setShowResults(true);
-            setSelectedIndex(0); // Reset selection
-          } else {
-            setFilteredCompanies([]);
-            setShowResults(true); // Keep dropdown open to show "No results"
-          }
+        .then((response: SearchResponse<Company>) => {
+          setFilteredCompanies(response.hits);
+          setShowResults(true);
+          setSelectedIndex(0);
         })
-        .catch((err) => {
-          console.error("Algolia search error:", err);
+        .catch((error: Error) => {
+          console.error("Algolia search error:", error);
           setFilteredCompanies([]);
-          setShowResults(true); // Show error or no results
+          setShowResults(true);
         });
     } else {
       setFilteredCompanies([]);
@@ -133,7 +136,7 @@ export default function SymbolLayout({
   };
 
   // Handle company selection
-  const handleCompanySelect = (company: any) => {
+  const handleCompanySelect = (company: Company) => {
     console.log(`Selected company: ${company.name}`);
     setShowResults(false);
     setSearchQuery(""); // Optional: clear search after selection
@@ -200,7 +203,7 @@ export default function SymbolLayout({
               <div className="absolute w-full mt-1 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-800 rounded-md z-10 max-h-60 overflow-auto">
                 {filteredCompanies.length === 0 && searchQuery ? ( // Show only if query exists
                   <div className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400">
-                    No results found for "{searchQuery}"
+                    No results found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   filteredCompanies.map((company, index) => (
@@ -228,13 +231,18 @@ export default function SymbolLayout({
           </div>
           {/* Authentication buttons */}
           <div className="flex gap-3 items-center">
-            {/* Using shadcn Button component styling for consistency */}
-            <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300">
-              Sign In
-            </button>
-            <button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2 bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900">
-              Sign Up
-            </button>
+            {loading ? (
+              <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            ) : user ? (
+              <UserProfile />
+            ) : (
+              <button
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300"
+                onClick={() => setLoginDialogOpen(true)}
+              >
+                Sign In
+              </button>
+            )}
             <ThemeToggle />
           </div>
         </div>
@@ -312,6 +320,23 @@ export default function SymbolLayout({
           </div>
         </div>
       </footer>
+
+      {/* Login Dialog */}
+      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
     </div>
+  );
+}
+
+export default function SymbolLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ symbol: string }>;
+}) {
+  return (
+    <AuthProvider>
+      <SymbolLayoutContent params={params}>{children}</SymbolLayoutContent>
+    </AuthProvider>
   );
 }
