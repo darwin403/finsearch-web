@@ -52,6 +52,10 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             Sign in to IndiaStocks
           </DialogTitle>
         </DialogHeader>
+        <p className="text-center text-sm text-muted-foreground px-4 pt-2">
+          Creating an account is free and helps us prevent spam. No payments
+          required.
+        </p>
         <div className="flex flex-col space-y-4 py-4">
           <Button
             variant="outline"
