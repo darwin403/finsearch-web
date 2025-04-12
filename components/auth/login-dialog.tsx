@@ -49,12 +49,12 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-semibold">
-            Sign in to IndiaStocks
+            Sign in or Create Account
           </DialogTitle>
         </DialogHeader>
         <p className="text-center text-sm text-muted-foreground px-4 pt-2">
-          Creating an account is free and helps us prevent spam. No payments
-          required.
+          Account creation is free and helps prevent abuse of this service. All
+          features on this platform are free to use.
         </p>
         <div className="flex flex-col space-y-4 py-4">
           <Button
