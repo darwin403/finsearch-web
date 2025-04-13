@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { FcGoogle } from "react-icons/fc";
-import { FaLinkedin, FaMicrosoft } from "react-icons/fa";
+import { FaFacebook } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 
 interface LoginDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSocialLogin = async (
-    provider: "google" | "linkedin" | "azure"
+    provider: "google" | "twitter" | "facebook"
   ) => {
     try {
       setIsLoading(true);
@@ -52,11 +53,15 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             Sign in or Create Account
           </DialogTitle>
         </DialogHeader>
-        <p className="text-center text-sm text-muted-foreground px-4 pt-2">
-          Account creation is free and helps prevent abuse of this service. All
-          features on this platform are free to use.
+        {/* Privacy note moved up */}
+        <p className="text-center text-sm text-muted-foreground px-4 pt-1">
+          {" "}
+          {/* Changed to text-sm */} {/* Reduced top padding */}
+          We respect your privacy and won&apos;t send you any emails.
         </p>
-        <div className="flex flex-col space-y-4 py-4">
+        <div className="flex flex-col space-y-3 py-3">
+          {" "}
+          {/* Reduced spacing and padding */}
           <Button
             variant="outline"
             className="flex items-center justify-center gap-2"
@@ -69,22 +74,30 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
           <Button
             variant="outline"
             className="flex items-center justify-center gap-2"
-            onClick={() => handleSocialLogin("linkedin")}
+            onClick={() => handleSocialLogin("twitter")}
             disabled={isLoading}
           >
-            <FaLinkedin className="h-5 w-5 text-[#0A66C2]" />
-            <span>Continue with LinkedIn</span>
+            <FaXTwitter className="h-5 w-5" /> {/* Using default color */}
+            <span>Continue with Twitter/X</span>
           </Button>
           <Button
             variant="outline"
             className="flex items-center justify-center gap-2"
-            onClick={() => handleSocialLogin("azure")}
+            onClick={() => handleSocialLogin("facebook")}
             disabled={isLoading}
           >
-            <FaMicrosoft className="h-5 w-5 text-[#00A4EF]" />
-            <span>Continue with Microsoft</span>
+            <FaFacebook className="h-5 w-5 text-[#1877F2]" />{" "}
+            {/* Facebook blue */}
+            <span>Continue with Facebook</span>
           </Button>
         </div>
+        {/* Account creation note moved down */}
+        <p className="text-center text-xs text-muted-foreground px-4 pt-3 pb-1">
+          {" "}
+          {/* Changed to text-xs */} {/* Reduced padding */}
+          Account creation is free and helps prevent abuse of this service. All
+          features on this platform are free to use.
+        </p>
       </DialogContent>
     </Dialog>
   );
