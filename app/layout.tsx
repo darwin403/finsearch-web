@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "FinSearch - AI-Powered Financial Research",
-    template: "%s | FinSearch",
+    default: "ArthaLens - AI-Powered Financial Research",
+    template: "%s | ArthaLens",
   },
   description:
     "AI-powered financial research platform for earnings call analysis, document chat, and risk factor analysis",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "risk analysis",
     "financial documents",
   ],
-  authors: [{ name: "FinSearch Team" }],
+  authors: [{ name: "ArthaLens Team" }],
   viewport: "width=device-width, initial-scale=1",
   robots: "index, follow",
 };

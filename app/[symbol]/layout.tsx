@@ -66,7 +66,7 @@ function SymbolLayoutContent({
             href="/"
             className="text-xl font-semibold text-slate-900 dark:text-slate-50"
           >
-            IndiaStocks
+            ArthaLens
           </Link>
           {/* Search - Wrap in a div that grows and centers the content */}
           <div className="flex-1 flex justify-center">
@@ -123,7 +123,7 @@ function SymbolLayoutContent({
       <footer className="border-t border-slate-200 bg-white py-6 dark:border-slate-800 dark:bg-slate-950">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-center sm:px-6 md:flex-row md:text-left lg:px-8">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            © 2025 IndiaStocks. All rights reserved.
+            © 2025 ArthaLens. All rights reserved.
           </p>
           <div className="flex gap-4 mt-2 md:mt-0">
             <Link

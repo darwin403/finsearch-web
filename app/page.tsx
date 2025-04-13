@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/dialog";
 
 export const metadata: Metadata = {
-  title: "FinSearch - AI-Powered Financial Research Platform",
+  title: "ArthaLens - AI-Powered Financial Research Platform",
   description:
-    "Discover FinSearch - Your AI-powered financial research companion for earnings call analysis, document chat, and risk factor analysis.",
+    "Discover ArthaLens - Your AI-powered financial research companion for earnings call analysis, document chat, and risk factor analysis.",
   openGraph: {
-    title: "FinSearch - AI-Powered Financial Research Platform",
+    title: "ArthaLens - AI-Powered Financial Research Platform",
     description:
       "Your AI-powered financial research companion for earnings call analysis, document chat, and risk factor analysis.",
     type: "website",
@@ -34,7 +34,7 @@ export default function Home() {
           Beta v0.1
         </Badge>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          FinSearch
+          ArthaLens
         </h1>
         <p className="text-lg text-muted-foreground">
           Your AI-powered financial research companion. We&apos;re starting with
