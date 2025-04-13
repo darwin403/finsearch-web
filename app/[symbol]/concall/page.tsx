@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator"; // Added Separator
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
-import { StreamingTextDisplay } from "@/components/shared/streaming-text-display"; // Added import
+// Removed unused import: import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
@@ -51,7 +52,7 @@ interface Transcript {
 interface TabConfig {
   id: string;
   title: string;
-  type: "default" | "analysis";
+  type: "default" | "analysis"; // Type might become less critical if state is separated
   icon?: React.ReactNode;
   prompt?: string;
   showToc?: boolean;
@@ -75,7 +76,7 @@ export default function EarningsCall() {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
   const [editTabPrompt, setEditTabPrompt] = useState("");
-  const [regenerateTrigger, setRegenerateTrigger] = useState(0); // Added state for regeneration
+  // Removed unused state: const [regenerateTrigger, setRegenerateTrigger] = useState(0);
 
   // Fetch transcript data
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function EarningsCall() {
     {
       id: "summary",
       title: "Summary",
-      type: "analysis",
+      type: "default", // Changed type as it's a hardcoded default
       icon: <FileText className="h-4 w-4" />,
       showToc: true,
     },
@@ -127,15 +128,15 @@ export default function EarningsCall() {
     },
   ];
 
-  const [tabs, setTabs] = useState<TabConfig[]>(defaultTabs);
+  // Removed the combined 'tabs' state
+  const [customTabs, setCustomTabs] = useState<TabConfig[]>([]); // State for custom tabs only
   const [activeTab, setActiveTab] = useState("summary");
-
   // Load custom tabs
   useEffect(() => {
     const loadCustomTabs = async () => {
       if (!user) {
-        // Reset to default if no user
-        setTabs(defaultTabs);
+        // Clear custom tabs if no user
+        setCustomTabs([]);
         return;
       }
 
@@ -150,17 +151,12 @@ export default function EarningsCall() {
             index === self.findIndex((t) => t.id === tab.id)
         );
 
-        // Combine default and valid custom tabs
-        setTabs([
-          ...defaultTabs,
-          ...validCustomTabs.filter(
-            (ct: TabConfig) => !defaultTabs.some((dt) => dt.id === ct.id) // Avoid adding duplicates of defaults
-          ),
-        ]);
+        // Set only the valid custom tabs
+        setCustomTabs(validCustomTabs);
       } catch (error) {
         console.error("Failed to load custom tabs from user metadata:", error);
-        // Fallback on error
-        setTabs(defaultTabs);
+        // Fallback on error - clear custom tabs
+        setCustomTabs([]);
       }
     };
 
@@ -173,12 +169,8 @@ export default function EarningsCall() {
       if (!user) return;
 
       try {
-        // Filter out default tabs
-        const customTabsToSave = tabs.filter(
-          (tab) =>
-            tab.type === "analysis" &&
-            !defaultTabs.some((dt) => dt.id === tab.id)
-        );
+        // Custom tabs state already contains only custom tabs
+        const customTabsToSave = customTabs;
 
         const currentMetadata = user?.user_metadata || {};
 
@@ -201,30 +193,36 @@ export default function EarningsCall() {
       }
     };
 
-    // Save if there are custom tabs (excluding defaults)
-    if (
-      tabs.some(
-        (tab) =>
-          tab.type === "analysis" && !defaultTabs.some((dt) => dt.id === tab.id)
-      )
-    ) {
+    // Save if there are any custom tabs
+    if (customTabs.length > 0) {
       saveCustomTabs();
     }
-  }, [tabs, user]);
+  }, [customTabs, user]); // Updated dependency from tabs to customTabs
 
   // Sync URL hash with activeTab on mount
   useEffect(() => {
     const currentHash = window.location.hash.substring(1);
-    const isValidTab = defaultTabs.some((tab) => tab.id === currentHash);
+    // Check if hash matches a default or a loaded custom tab
+    const allValidTabIds = [
+      ...defaultTabs.map((tab) => tab.id),
+      ...customTabs.map((tab) => tab.id), // Include custom tabs loaded later
+    ];
+    const isValidTab = allValidTabIds.includes(currentHash);
+
     if (isValidTab && currentHash !== activeTab) {
       setActiveTab(currentHash);
-    } else if (!isValidTab && activeTab !== "summary") {
-      // If hash is invalid or empty, ensure activeTab is the default ('summary')
-      // (The state default handles this, no action needed here unless resetting hash)
+    } else if (
+      !isValidTab &&
+      activeTab !== "summary" &&
+      defaultTabs.length > 0
+    ) {
+      // If hash is invalid or empty, default to the first default tab (usually 'summary')
+      setActiveTab(defaultTabs[0].id);
+      router.replace(`#${defaultTabs[0].id}`, { scroll: false });
     }
     // Run only on mount (or if defaultTabs could change dynamically)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [customTabs]); // Re-run if custom tabs load and might validate the hash
 
   // Update state and URL hash on tab change
   const handleTabChange = (newTabId: string) => {
@@ -267,7 +265,7 @@ export default function EarningsCall() {
         showToc: true,
       };
 
-      setTabs((prevTabs) => [...prevTabs, newTab]);
+      setCustomTabs((prevTabs) => [...prevTabs, newTab]);
 
       setActiveTab(newTabId);
 
@@ -282,8 +280,10 @@ export default function EarningsCall() {
   // Edit/Delete custom tabs
 
   const openEditDialog = (tabId: string) => {
-    const tabToEdit = tabs.find((tab) => tab.id === tabId);
-    if (tabToEdit && tabToEdit.type === "analysis") {
+    // Find in custom tabs only
+    const tabToEdit = customTabs.find((tab) => tab.id === tabId);
+    // All custom tabs should be 'analysis' type, but check remains for safety
+    if (tabToEdit /* && tabToEdit.type === "analysis" */) {
       setEditingTabId(tabId);
       setEditTabName(tabToEdit.title);
       setEditTabPrompt(tabToEdit.prompt || "");
@@ -294,7 +294,7 @@ export default function EarningsCall() {
   const handleUpdateTab = () => {
     if (!editingTabId || !editTabName || !editTabPrompt) return;
 
-    setTabs((prevTabs) =>
+    setCustomTabs((prevTabs) =>
       prevTabs.map((tab) =>
         tab.id === editingTabId
           ? { ...tab, title: editTabName, prompt: editTabPrompt }
@@ -302,10 +302,10 @@ export default function EarningsCall() {
       )
     );
 
-    // If the edited tab is active, trigger regeneration by updating the key
-    if (activeTab === editingTabId) {
-      setRegenerateTrigger(Date.now());
-    }
+    // Removed regeneration logic as content is now mocked
+    // if (activeTab === editingTabId) {
+    //   setRegenerateTrigger(Date.now());
+    // }
 
     setIsEditDialogOpen(false);
     setEditingTabId(null);
@@ -313,7 +313,7 @@ export default function EarningsCall() {
   };
 
   const handleDeleteTab = (tabId: string) => {
-    setTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
+    setCustomTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
 
     // No need to manage analysisResults state here anymore
 
@@ -526,9 +526,33 @@ export default function EarningsCall() {
             <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
               {" "}
               {/* Adjust top value based on actual header height */}
-              <TabsList className="h-11 bg-transparent justify-start">
-                {/* Tabs List */}
-                {tabs.map((tab) => (
+              <TabsList className="h-11 bg-transparent justify-start flex flex-wrap">
+                {/* Default Tabs */}
+                {defaultTabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {tab.icon && (
+                      <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
+                        {tab.icon}
+                      </span>
+                    )}
+                    {tab.title}
+                  </TabsTrigger>
+                ))}
+
+                {/* Separator only if there are custom tabs */}
+                {customTabs.length > 0 && (
+                  <Separator
+                    orientation="vertical"
+                    className="h-6 self-center mx-2 bg-slate-200 dark:bg-slate-700"
+                  />
+                )}
+
+                {/* Custom Analysis Tabs */}
+                {customTabs.map((tab) => (
                   <div
                     key={tab.id}
                     className="relative flex items-center group pr-1" // Wrapper for edit button positioning
@@ -537,39 +561,33 @@ export default function EarningsCall() {
                       value={tab.id}
                       className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                     >
-                      {tab.icon && (
-                        <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
-                          {tab.icon}
-                        </span>
-                      )}
+                      {/* No icon for custom tabs by default, but could be added */}
                       {tab.title}
                     </TabsTrigger>
                     {/* Edit button for custom analysis tabs */}
-                    {tab.type === "analysis" &&
-                      !defaultTabs.some((dt) => dt.id === tab.id) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent tab trigger activation
-                            openEditDialog(tab.id);
-                          }}
-                          aria-label={`Edit tab ${tab.title}`}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent tab trigger activation
+                        openEditDialog(tab.id);
+                      }}
+                      aria-label={`Edit tab ${tab.title}`}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 ))}
               </TabsList>
               {/* Regenerate button (only for custom analysis tabs) */}
               {(() => {
-                const activeTabData = tabs.find((t) => t.id === activeTab);
-                const isCustomAnalysisTab =
-                  activeTabData &&
-                  activeTabData.type === "analysis" &&
-                  !defaultTabs.some((dt) => dt.id === activeTab);
+                // Find active tab in custom tabs
+                const activeTabData = customTabs.find(
+                  (t) => t.id === activeTab
+                );
+                // The regenerate button is only for custom tabs
+                const isCustomAnalysisTab = !!activeTabData;
 
                 if (!isCustomAnalysisTab) return null;
 
@@ -579,8 +597,8 @@ export default function EarningsCall() {
                     variant="outline"
                     className="flex items-center gap-1 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     onClick={() => {
-                      // Trigger regeneration by updating the state variable
-                      setRegenerateTrigger(Date.now());
+                      // Regeneration logic removed as content is mocked
+                      console.log("Regenerate clicked (currently mocked)");
                     }}
                   >
                     <RefreshCcw className="h-4 w-4" />
@@ -590,59 +608,74 @@ export default function EarningsCall() {
               })()}
             </div>
             {/* Tab Content Area */}
-            {tabs.map((tab) => (
+            {/* Default Tab Contents */}
+            {defaultTabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                 <div className="p-6">
-                  {/* Main content area */}
-                  {tab.id === "summary" ||
-                  tab.id === "qa" ||
-                  tab.id === "guidance" ? (
-                    <>
-                      {tab.id === "guidance" && (
-                        <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
-                          <span className="font-semibold">Note:</span> The
-                          &ldquo;Previous Guidance&rdquo; column currently does
-                          not reflect data from previous quarters&apos; earnings
-                          transcripts. This feature will be added in a future
-                          version.
-                        </div>
-                      )}
-                      <MarkdownDisplay
-                        markdownContent={
-                          tab.id === "summary"
-                            ? selectedTranscript.summary
-                            : tab.id === "qa"
-                            ? selectedTranscript.qna || "No Q&A data available."
-                            : selectedTranscript.guidance_changes ||
-                              "No Guidance data available."
-                        }
-                        showToc={tab.showToc}
-                        className="pr-6" // Add padding to the right if needed, or handle within MarkdownDisplay
-                      />
-                    </>
-                  ) : (
-                    // Use the new StreamingTextDisplay component
-                    (() => {
-                      const analysisUrl = selectedTranscript?.url
-                        ? `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
-                            selectedTranscript.url
-                          )}&tab_id=${encodeURIComponent(tab.id)}`
-                        : "";
-
-                      return (
-                        <StreamingTextDisplay
-                          key={`${tab.id}-${regenerateTrigger}`} // Force re-mount on regenerate or tab change
-                          eventSourceUrl={analysisUrl}
-                          showToc={tab.showToc}
-                          className="pr-6"
-                        />
-                      );
-                    })()
+                  {tab.id === "guidance" && (
+                    <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
+                      <span className="font-semibold">Note:</span> The
+                      &ldquo;Previous Guidance&rdquo; column currently does not
+                      reflect data from previous quarters&apos; earnings
+                      transcripts. This feature will be added in a future
+                      version.
+                    </div>
                   )}
+                  <MarkdownDisplay
+                    markdownContent={
+                      tab.id === "summary"
+                        ? selectedTranscript.summary
+                        : tab.id === "qa"
+                        ? selectedTranscript.qna || "No Q&A data available."
+                        : selectedTranscript.guidance_changes ||
+                          "No Guidance data available."
+                    }
+                    showToc={tab.showToc}
+                    className="prose dark:prose-invert max-w-none" // Use prose for better styling
+                  />
                 </div>
               </TabsContent>
-            ))}{" "}
-            {/* Closes map function */}
+            ))}
+
+            {/* Custom Analysis Tab Contents (Mock Data) */}
+            {customTabs.map((tab) => (
+              <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold mb-3 text-slate-800 dark:text-slate-200">
+                    {tab.title} (Mock Analysis)
+                  </h3>
+                  <p className="text-slate-700 dark:text-slate-300 mb-4">
+                    This is mock content generated based on the custom analysis
+                    prompt. Real-time analysis via streaming is currently
+                    disabled.
+                  </p>
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
+                      Analysis Prompt Used:
+                    </p>
+                    <p className="text-sm text-slate-800 dark:text-slate-200 font-mono bg-white dark:bg-slate-900 p-2 rounded text-xs">
+                      {tab.prompt || "No prompt defined"}
+                    </p>
+                  </div>
+                  {/* Placeholder for future StreamingTextDisplay or actual content */}
+                  {/*
+                  const analysisUrl = selectedTranscript?.url
+                    ? `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
+                        selectedTranscript.url
+                      )}&tab_id=${encodeURIComponent(tab.id)}`
+                    : "";
+                  return (
+                    <StreamingTextDisplay
+                      key={`${tab.id}-${regenerateTrigger}`}
+                      eventSourceUrl={analysisUrl}
+                      showToc={tab.showToc}
+                      className="pr-6"
+                    />
+                  );
+                  */}
+                </div>
+              </TabsContent>
+            ))}
           </Tabs>
         </Card>
       </div>
