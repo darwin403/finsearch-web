@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"; // Re-added Tooltip imports
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -436,85 +442,116 @@ export default function EarningsCall() {
               </Button>
             </a>
           </div>
-          {/* Right side control: AI Analysis Button */}
-          <Dialog
-            open={isCreateDialogOpen}
-            onOpenChange={setIsCreateDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button
-                size="sm"
-                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
-              >
-                <Sparkles className="h-4 w-4" />
-                AI Custom Analysis
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-              <DialogHeader>
-                <DialogTitle className="text-slate-900 dark:text-slate-100">
-                  Create Custom Analysis
-                </DialogTitle>
-                <DialogDescription className="text-slate-600 dark:text-slate-400">
-                  Create a custom tab with AI analysis of this earnings
-                  transcript.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="name"
-                    className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                  >
-                    Tab Name
-                  </label>
-                  <Input
-                    id="name"
-                    placeholder="E.g., Management Tone"
-                    value={newTabName}
-                    onChange={(e) => setNewTabName(e.target.value)}
-                    className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="prompt"
-                    className="text-sm font-medium text-slate-700 dark:text-slate-300"
-                  >
-                    Analysis Prompt
-                  </label>
-                  <Textarea
-                    id="prompt"
-                    placeholder="Describe what you'd like to analyze from this earnings transcript..."
-                    rows={5}
-                    value={newTabPrompt}
-                    onChange={(e) => setNewTabPrompt(e.target.value)}
-                    className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
+          {/* Right side controls: Remaining Generations + AI Analysis Button */}
+          <div className="flex items-center gap-3">
+            {" "}
+            {/* Wrapper for count and button */}
+            {user &&
+              (() => {
+                // Use IIFE to calculate safely
+                const maxGenerations =
+                  user.user_metadata?.max_generations_per_day ?? 5;
+                const generationsToday =
+                  user.user_metadata?.generations_today ?? 0;
+                const remaining = maxGenerations - generationsToday;
+                return (
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
+                          {" "}
+                          {/* Added cursor */}
+                          Remaining Today: <span>{remaining}</span>{" "}
+                          {/* Removed font-medium */}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        <p>Number of AI analyses you can generate today.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={setIsCreateDialogOpen}
+            >
+              <DialogTrigger asChild>
                 <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsCreateDialogOpen(false);
-                    setNewTabName("");
-                    setNewTabPrompt("");
-                  }}
-                  className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  size="sm"
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
                 >
-                  Cancel
+                  <Sparkles className="h-4 w-4" />
+                  AI Custom Analysis
                 </Button>
-                <Button
-                  onClick={addCustomTab}
-                  disabled={!newTabName || !newTabPrompt}
-                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
-                >
-                  Create
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                <DialogHeader>
+                  <DialogTitle className="text-slate-900 dark:text-slate-100">
+                    Create Custom Analysis
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-600 dark:text-slate-400">
+                    Create a custom tab with AI analysis of this earnings
+                    transcript.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="name"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      Tab Name
+                    </label>
+                    <Input
+                      id="name"
+                      placeholder="E.g., Management Tone"
+                      value={newTabName}
+                      onChange={(e) => setNewTabName(e.target.value)}
+                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="prompt"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                    >
+                      Analysis Prompt
+                    </label>
+                    <Textarea
+                      id="prompt"
+                      placeholder="Describe what you'd like to analyze from this earnings transcript..."
+                      rows={5}
+                      value={newTabPrompt}
+                      onChange={(e) => setNewTabPrompt(e.target.value)}
+                      className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateDialogOpen(false);
+                      setNewTabName("");
+                      setNewTabPrompt("");
+                    }}
+                    className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={addCustomTab}
+                    disabled={!newTabName || !newTabPrompt}
+                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
+                  >
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>{" "}
+          {/* Close the wrapper div */}
         </div>
         <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
           <Tabs

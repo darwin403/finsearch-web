@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator"; // Added import
 import { useState } from "react";
 
 export function UserProfile() {
@@ -77,6 +78,22 @@ export function UserProfile() {
                 </p>
                 <p className="text-xs text-muted-foreground">{userEmail}</p>
               </div>
+            </div>
+            <Separator className="my-2" /> {/* Added Separator */}
+            <div className="flex items-center text-sm">
+              {" "}
+              {/* Removed justify-between */}
+              <p className="text-sm text-muted-foreground">
+                {" "}
+                {/* Moved muted class here */}
+                Generations Today:{" "}
+                <span>
+                  {" "}
+                  {/* Removed font-medium */}
+                  {user.user_metadata.generations_today ?? 0} /{" "}
+                  {user.user_metadata.max_generations_per_day ?? 5}
+                </span>
+              </p>
             </div>
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
