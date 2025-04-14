@@ -5,11 +5,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"; // Re-added Tooltip imports
+} from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator"; // Added Separator
+import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +35,27 @@ import {
   Edit,
   Trash2,
   RefreshCcw,
+  Check,
 } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
-// Removed unused import: import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+
+// Define sample prompts
+const SAMPLE_PROMPTS = [
+  {
+    id: "headwinds-tailwinds",
+    title: "Headwinds & Tailwinds",
+    prompt:
+      "Analyze the earnings call transcript and identify key headwinds (challenges, obstacles, negative factors) and tailwinds (opportunities, positive factors, growth drivers) mentioned by management. Organize these into clear categories and provide brief context for each point.",
+  },
+  {
+    id: "management-tone",
+    title: "Management Tone",
+    prompt:
+      "Analyze the tone and sentiment of management's language throughout the earnings call. Identify whether they seem optimistic, cautious, defensive, or confident about the company's performance and future outlook. Provide specific examples of language that reveals their attitude and mindset.",
+  },
+];
 
 interface Transcript {
   url: string;
@@ -58,7 +74,7 @@ interface Transcript {
 interface TabConfig {
   id: string;
   title: string;
-  type: "default" | "analysis"; // Type might become less critical if state is separated
+  type: "default" | "analysis";
   icon?: React.ReactNode;
   prompt?: string;
   showToc?: boolean;
@@ -82,7 +98,9 @@ export default function EarningsCall() {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
   const [editTabPrompt, setEditTabPrompt] = useState("");
-  // Removed unused state: const [regenerateTrigger, setRegenerateTrigger] = useState(0);
+  const [selectedSamplePrompt, setSelectedSamplePrompt] = useState<
+    string | null
+  >(null);
 
   // Fetch transcript data
   useEffect(() => {
@@ -98,7 +116,6 @@ export default function EarningsCall() {
 
         if (data.length > 0) {
           setSelectedTranscript(data[0]);
-          // No longer need to reset analysisResults here
         }
 
         setLoading(false);
@@ -115,7 +132,7 @@ export default function EarningsCall() {
     {
       id: "summary",
       title: "Summary",
-      type: "default", // Changed type as it's a hardcoded default
+      type: "default",
       icon: <FileText className="h-4 w-4" />,
       showToc: true,
     },
@@ -134,34 +151,29 @@ export default function EarningsCall() {
     },
   ];
 
-  // Removed the combined 'tabs' state
-  const [customTabs, setCustomTabs] = useState<TabConfig[]>([]); // State for custom tabs only
+  const [customTabs, setCustomTabs] = useState<TabConfig[]>([]);
   const [activeTab, setActiveTab] = useState("summary");
+
   // Load custom tabs
   useEffect(() => {
     const loadCustomTabs = async () => {
       if (!user) {
-        // Clear custom tabs if no user
         setCustomTabs([]);
         return;
       }
 
       try {
-        // Use auth context user data
         const customTabs = user?.user_metadata?.customTabs || [];
 
-        // Filter for valid, unique custom analysis tabs
         const validCustomTabs = customTabs.filter(
           (tab: TabConfig, index: number, self: TabConfig[]) =>
             tab.type === "analysis" &&
             index === self.findIndex((t) => t.id === tab.id)
         );
 
-        // Set only the valid custom tabs
         setCustomTabs(validCustomTabs);
       } catch (error) {
         console.error("Failed to load custom tabs from user metadata:", error);
-        // Fallback on error - clear custom tabs
         setCustomTabs([]);
       }
     };
@@ -175,7 +187,6 @@ export default function EarningsCall() {
       if (!user) return;
 
       try {
-        // Custom tabs state already contains only custom tabs
         const customTabsToSave = customTabs;
 
         const currentMetadata = user?.user_metadata || {};
@@ -185,7 +196,6 @@ export default function EarningsCall() {
           customTabs: customTabsToSave,
         };
 
-        // Update Supabase user metadata
         const { error } = await supabase.auth.updateUser({
           data: updatedMetadata,
         });
@@ -199,19 +209,17 @@ export default function EarningsCall() {
       }
     };
 
-    // Save if there are any custom tabs
     if (customTabs.length > 0) {
       saveCustomTabs();
     }
-  }, [customTabs, user]); // Updated dependency from tabs to customTabs
+  }, [customTabs, user]);
 
   // Sync URL hash with activeTab on mount
   useEffect(() => {
     const currentHash = window.location.hash.substring(1);
-    // Check if hash matches a default or a loaded custom tab
     const allValidTabIds = [
       ...defaultTabs.map((tab) => tab.id),
-      ...customTabs.map((tab) => tab.id), // Include custom tabs loaded later
+      ...customTabs.map((tab) => tab.id),
     ];
     const isValidTab = allValidTabIds.includes(currentHash);
 
@@ -222,18 +230,25 @@ export default function EarningsCall() {
       activeTab !== "summary" &&
       defaultTabs.length > 0
     ) {
-      // If hash is invalid or empty, default to the first default tab (usually 'summary')
       setActiveTab(defaultTabs[0].id);
       router.replace(`#${defaultTabs[0].id}`, { scroll: false });
     }
-    // Run only on mount (or if defaultTabs could change dynamically)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customTabs]); // Re-run if custom tabs load and might validate the hash
+  }, [customTabs]);
+
+  // Handle selecting a sample prompt
+  const handleSelectSamplePrompt = (promptId: string) => {
+    const selectedPrompt = SAMPLE_PROMPTS.find((p) => p.id === promptId);
+    if (selectedPrompt) {
+      setSelectedSamplePrompt(promptId);
+      setNewTabName(selectedPrompt.title);
+      setNewTabPrompt(selectedPrompt.prompt);
+    }
+  };
 
   // Update state and URL hash on tab change
   const handleTabChange = (newTabId: string) => {
     setActiveTab(newTabId);
-    router.replace(`#${newTabId}`, { scroll: false }); // Update hash without history entry
+    router.replace(`#${newTabId}`, { scroll: false });
   };
 
   // Transcript navigation
@@ -243,7 +258,6 @@ export default function EarningsCall() {
     );
     if (currentIndex > 0) {
       setSelectedTranscript(transcripts[currentIndex - 1]);
-      // No longer need to reset analysisResults here
     }
   };
 
@@ -253,11 +267,8 @@ export default function EarningsCall() {
     );
     if (currentIndex < transcripts.length - 1) {
       setSelectedTranscript(transcripts[currentIndex + 1]);
-      // No longer need to reset analysisResults here
     }
   };
-
-  // Removed fetchAnalysis function and analysisResults state management
 
   // Add a new custom analysis tab
   const addCustomTab = () => {
@@ -277,19 +288,15 @@ export default function EarningsCall() {
 
       setNewTabName("");
       setNewTabPrompt("");
+      setSelectedSamplePrompt(null);
       setIsCreateDialogOpen(false);
-
-      // Analysis is now handled by StreamingTextDisplay when the tab becomes active
     }
   };
 
   // Edit/Delete custom tabs
-
   const openEditDialog = (tabId: string) => {
-    // Find in custom tabs only
     const tabToEdit = customTabs.find((tab) => tab.id === tabId);
-    // All custom tabs should be 'analysis' type, but check remains for safety
-    if (tabToEdit /* && tabToEdit.type === "analysis" */) {
+    if (tabToEdit) {
       setEditingTabId(tabId);
       setEditTabName(tabToEdit.title);
       setEditTabPrompt(tabToEdit.prompt || "");
@@ -308,32 +315,28 @@ export default function EarningsCall() {
       )
     );
 
-    // Removed regeneration logic as content is now mocked
-    // if (activeTab === editingTabId) {
-    //   setRegenerateTrigger(Date.now());
-    // }
-
     setIsEditDialogOpen(false);
     setEditingTabId(null);
-    // No need to reset editTabName/Prompt, they get set when dialog opens
   };
 
   const handleDeleteTab = (tabId: string) => {
     setCustomTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
 
-    // No need to manage analysisResults state here anymore
-
-    // Switch to summary if the deleted tab was active
     if (activeTab === tabId) {
       setActiveTab("summary");
       router.replace("#summary", { scroll: false });
     }
 
-    setIsEditDialogOpen(false); // Close dialog if open
+    setIsEditDialogOpen(false);
     setEditingTabId(null);
   };
 
-  // Removed useEffect hook for fetching analysis; StreamingTextDisplay handles its own fetching.
+  // Reset sample selection when dialog closes
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setSelectedSamplePrompt(null);
+    }
+  }, [isCreateDialogOpen]);
 
   // Loading and error states
   if (loading) {
@@ -355,8 +358,6 @@ export default function EarningsCall() {
   return (
     <>
       <div className="w-full p-6 md:p-8">
-        {" "}
-        {/* Added padding here */}
         <h1 className="text-3xl font-semibold mb-1 text-slate-900 dark:text-slate-100">
           Earnings Call Analysis
         </h1>
@@ -404,7 +405,6 @@ export default function EarningsCall() {
                         onClick={() => {
                           setSelectedTranscript(transcript);
                           setShowQuarterDropdown(false);
-                          // No longer need to reset analysisResults here
                         }}
                       >
                         {transcript.fiscal_quarter} ({transcript.date})
@@ -444,11 +444,8 @@ export default function EarningsCall() {
           </div>
           {/* Right side controls: Remaining Generations + AI Analysis Button */}
           <div className="flex items-center gap-3">
-            {" "}
-            {/* Wrapper for count and button */}
             {user &&
               (() => {
-                // Use IIFE to calculate safely
                 const maxGenerations =
                   user.user_metadata?.max_generations_per_day ?? 5;
                 const generationsToday =
@@ -459,10 +456,7 @@ export default function EarningsCall() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
-                          {" "}
-                          {/* Added cursor */}
-                          Remaining Today: <span>{remaining}</span>{" "}
-                          {/* Removed font-medium */}
+                          Remaining Today: <span>{remaining}</span>
                         </p>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
@@ -495,7 +489,40 @@ export default function EarningsCall() {
                     transcript.
                   </DialogDescription>
                 </DialogHeader>
+
                 <div className="space-y-4 py-4">
+                  {/* Sample Prompts Section */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Sample Templates
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {SAMPLE_PROMPTS.map((prompt) => (
+                        <div
+                          key={prompt.id}
+                          className={`relative cursor-pointer rounded-md border p-3 transition-all hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                            selectedSamplePrompt === prompt.id
+                              ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/30"
+                              : "border-slate-200 dark:border-slate-800"
+                          }`}
+                          onClick={() => handleSelectSamplePrompt(prompt.id)}
+                        >
+                          {selectedSamplePrompt === prompt.id && (
+                            <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 dark:bg-blue-400">
+                              <Check className="h-3 w-3 text-white dark:text-slate-950" />
+                            </div>
+                          )}
+                          <h4 className="font-medium text-slate-900 dark:text-slate-100 text-sm">
+                            {prompt.title}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                            {prompt.prompt.substring(0, 75)}...
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label
                       htmlFor="name"
@@ -511,6 +538,7 @@ export default function EarningsCall() {
                       className="border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-blue-500 dark:text-slate-50"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <label
                       htmlFor="prompt"
@@ -528,6 +556,7 @@ export default function EarningsCall() {
                     />
                   </div>
                 </div>
+
                 <DialogFooter>
                   <Button
                     variant="outline"
@@ -535,6 +564,7 @@ export default function EarningsCall() {
                       setIsCreateDialogOpen(false);
                       setNewTabName("");
                       setNewTabPrompt("");
+                      setSelectedSamplePrompt(null);
                     }}
                     className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
@@ -550,19 +580,16 @@ export default function EarningsCall() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </div>{" "}
-          {/* Close the wrapper div */}
+          </div>
         </div>
         <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
           <Tabs
             value={activeTab}
-            onValueChange={handleTabChange} // Use the new handler
+            onValueChange={handleTabChange}
             className="w-full"
           >
             {/* Sticky Tabs Header */}
             <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
-              {" "}
-              {/* Adjust top value based on actual header height */}
               <TabsList className="h-11 bg-transparent justify-start flex flex-wrap">
                 {/* Default Tabs */}
                 {defaultTabs.map((tab) => (
@@ -592,13 +619,12 @@ export default function EarningsCall() {
                 {customTabs.map((tab) => (
                   <div
                     key={tab.id}
-                    className="relative flex items-center group pr-1" // Wrapper for edit button positioning
+                    className="relative flex items-center group pr-1"
                   >
                     <TabsTrigger
                       value={tab.id}
                       className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                     >
-                      {/* No icon for custom tabs by default, but could be added */}
                       {tab.title}
                     </TabsTrigger>
                     {/* Edit button for custom analysis tabs */}
@@ -607,7 +633,7 @@ export default function EarningsCall() {
                       size="icon"
                       className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 z-20"
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent tab trigger activation
+                        e.stopPropagation();
                         openEditDialog(tab.id);
                       }}
                       aria-label={`Edit tab ${tab.title}`}
@@ -619,11 +645,9 @@ export default function EarningsCall() {
               </TabsList>
               {/* Regenerate button (only for custom analysis tabs) */}
               {(() => {
-                // Find active tab in custom tabs
                 const activeTabData = customTabs.find(
                   (t) => t.id === activeTab
                 );
-                // The regenerate button is only for custom tabs
                 const isCustomAnalysisTab = !!activeTabData;
 
                 if (!isCustomAnalysisTab) return null;
@@ -634,7 +658,6 @@ export default function EarningsCall() {
                     variant="outline"
                     className="flex items-center gap-1 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     onClick={() => {
-                      // Regeneration logic removed as content is mocked
                       console.log("Regenerate clicked (currently mocked)");
                     }}
                   >
@@ -668,7 +691,7 @@ export default function EarningsCall() {
                           "No Guidance data available."
                     }
                     showToc={tab.showToc}
-                    className="prose dark:prose-invert max-w-none" // Use prose for better styling
+                    className="prose dark:prose-invert max-w-none"
                   />
                 </div>
               </TabsContent>
@@ -694,22 +717,6 @@ export default function EarningsCall() {
                       {tab.prompt || "No prompt defined"}
                     </p>
                   </div>
-                  {/* Placeholder for future StreamingTextDisplay or actual content */}
-                  {/*
-                  const analysisUrl = selectedTranscript?.url
-                    ? `http://localhost:8000/process-transcript/?url=${encodeURIComponent(
-                        selectedTranscript.url
-                      )}&tab_id=${encodeURIComponent(tab.id)}`
-                    : "";
-                  return (
-                    <StreamingTextDisplay
-                      key={`${tab.id}-${regenerateTrigger}`}
-                      eventSourceUrl={analysisUrl}
-                      showToc={tab.showToc}
-                      className="pr-6"
-                    />
-                  );
-                  */}
                 </div>
               </TabsContent>
             ))}
@@ -765,7 +772,7 @@ export default function EarningsCall() {
             <Button
               variant="destructive"
               onClick={() => editingTabId && handleDeleteTab(editingTabId)}
-              className="mr-auto" // Push delete button to the left
+              className="mr-auto"
               disabled={!editingTabId}
             >
               <Trash2 className="h-4 w-4 mr-2" />
