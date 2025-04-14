@@ -358,13 +358,16 @@ export default function EarningsCall() {
 
   return (
     <>
-      <div className="w-full p-6 md:p-8">
-        <h1 className="text-3xl font-semibold mb-1 text-slate-900 dark:text-slate-100">
-          Earnings Call Analysis
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Comprehensive analysis of quarterly earnings calls
-        </p>
+      {/* Consistent Title and Description like Overview */}
+      <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
+        Earnings Call Analysis
+      </h1>
+      <p className="text-muted-foreground mb-4">
+        Comprehensive analysis of quarterly earnings calls
+      </p>
+
+      {/* Wrap remaining content */}
+      <div className="space-y-6">
         {/* Top controls */}
         <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4 gap-x-4">
           {/* Left side controls */}
