@@ -6,6 +6,7 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import cn from "classnames";
 import { ArrowUp, ArrowDown, Minus, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface Section {
   id: string;
@@ -59,8 +60,8 @@ const extractSections = (markdown: string): Section[] => {
 // Types for custom markdown renderers
 type HeadingProps = React.ComponentPropsWithoutRef<"h1">;
 type TdProps = React.ComponentPropsWithoutRef<"td">;
-
-// Custom markdown renderers: apply heading IDs, add icons/styles to table cells
+type AnchorProps = React.ComponentPropsWithoutRef<"a">;
+// Custom markdown renderers: apply heading IDs, add icons/styles to table cells, style citation links
 const MarkdownComponents: React.ComponentProps<
   typeof ReactMarkdown
 >["components"] = {
@@ -127,6 +128,39 @@ const MarkdownComponents: React.ComponentProps<
         {icon}
         {children}
       </td>
+    );
+  },
+  a: ({ children, href, ...props }: AnchorProps) => {
+    // Heuristic: Check if the link text looks like a citation (e.g., "[1]", "[ 2 ]")
+    // Check if it's an external link
+    const isExternal =
+      href && (href.startsWith("http://") || href.startsWith("https://"));
+
+    if (isExternal) {
+      // Apply user-specified badge styling
+      return (
+        <a
+          href={href}
+          {...props}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="no-underline inline-block align-baseline mx-0.5" // Adjusted alignment and spacing
+        >
+          <Badge
+            variant="outline" // Variant from feedback
+            className="text-[10px] cursor-pointer hover:bg-muted transition-colors bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 px-1 py-0" // Made text smaller
+          >
+            {children} {/* Use original link content */}
+          </Badge>
+        </a>
+      );
+    }
+
+    // Default rendering for other links (uses prose styles)
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
     );
   },
 };

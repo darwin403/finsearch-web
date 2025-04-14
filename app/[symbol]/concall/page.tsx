@@ -40,6 +40,7 @@ import {
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { replaceCitationsWithLinks } from "@/lib/utils";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -675,23 +676,32 @@ export default function EarningsCall() {
                   {tab.id === "guidance" && (
                     <div className="text-sm text-yellow-800 dark:text-yellow-200 mb-4 border-l-4 border-yellow-400 dark:border-yellow-600 pl-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-r-md">
                       <span className="font-semibold">Note:</span> The
-                      &ldquo;Previous Guidance&rdquo; column currently does not
-                      reflect data from previous quarters&apos; earnings
-                      transcripts. This feature will be added in a future
-                      version.
+                      &ldquo;Previous Guidance&rdquo; column currently reflects
+                      information extracted *only* from this quarter&apos;s
+                      transcript. Data from previous quarters will be included
+                      in future platform updates.
                     </div>
                   )}
                   <MarkdownDisplay
-                    markdownContent={
-                      tab.id === "summary"
-                        ? selectedTranscript.summary
-                        : tab.id === "qa"
-                        ? selectedTranscript.qna || "No Q&A data available."
-                        : selectedTranscript.guidance_changes ||
-                          "No Guidance data available."
-                    }
+                    markdownContent={replaceCitationsWithLinks(
+                      (() => {
+                        if (tab.id === "summary")
+                          return selectedTranscript.summary;
+                        if (tab.id === "qa")
+                          return (
+                            selectedTranscript.qna || "No Q&A data available."
+                          );
+                        if (tab.id === "guidance")
+                          return (
+                            selectedTranscript.guidance_changes ||
+                            "No Guidance data available."
+                          );
+                        return ""; // Default case
+                      })(),
+                      selectedTranscript.url // Pass the base PDF URL
+                    )}
                     showToc={tab.showToc}
-                    className="prose dark:prose-invert max-w-none"
+                    className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline" // Added styling for links
                   />
                 </div>
               </TabsContent>
