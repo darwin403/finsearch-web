@@ -210,9 +210,10 @@ export default function EarningsCall() {
       }
     };
 
-    if (customTabs.length > 0) {
-      saveCustomTabs();
-    }
+    // ! TEMP FIX: temporarily removed this, infinite PUT triggered on supabase endpoint
+    // if (customTabs.length > 0) {
+    //   saveCustomTabs();
+    // }
   }, [customTabs, user]);
 
   // Sync URL hash with activeTab on mount

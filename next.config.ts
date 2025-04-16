@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  reactStrictMode: false, // Prevents double rendering components by default while developing.
 };
 
 export default nextConfig;
