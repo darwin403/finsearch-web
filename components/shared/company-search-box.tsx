@@ -1,189 +1,188 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { algoliasearch } from "algoliasearch";
-// import { Search } from "lucide-react"; // Removed unused import
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import {
-  Command,
+  CommandDialog,
   CommandInput,
   CommandList,
-  CommandItem,
   CommandEmpty,
+  CommandGroup,
+  CommandItem,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-// Assuming cn utility exists for class merging
-// import { cn } from "@/lib/utils";
+import { Search } from "lucide-react";
+import { algoliasearch } from "algoliasearch";
+import { DialogTitle } from "@/components/ui/dialog";
 
 // Algolia configuration
 const ALGOLIA_APP_ID = "WP3HSGTPKW";
 const ALGOLIA_SEARCH_API_KEY = "9bc27007a715e558c8331eaddfdd155e";
 const ALGOLIA_INDEX_NAME = "finsearch_companies";
-
-// Let TypeScript infer the type for better compatibility
 const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 
+// Define Company type
 interface Company {
   objectID: string;
   symbol: string;
   name: string;
 }
 
-interface CompanySearchBoxProps {
-  onCompanySelect: (company: Company) => void;
+interface CompanySearchProps {
+  sections: Array<{ id: string; title: string; path: string }>;
 }
 
-export function CompanySearchBox({ onCompanySelect }: CompanySearchBoxProps) {
+export function CompanySearch({ sections }: CompanySearchProps) {
+  const [commandOpen, setCommandOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [open, setOpen] = useState(false); // Popover open state
-  const inputRef = useRef<HTMLInputElement>(null); // Ref for the input
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounced search function
-  const runSearch = useCallback(
-    async (query: string) => {
-      if (query.trim() === "") {
-        setFilteredCompanies([]);
-        // Don't close popover immediately if user is clearing input
-        // setOpen(false);
-        return;
-      }
+  const router = useRouter();
+  const pathname = usePathname();
 
-      setIsLoading(true);
-      try {
-        const response = await searchClient.search({
-          requests: [
-            {
-              indexName: ALGOLIA_INDEX_NAME,
-              query: query,
-              hitsPerPage: 10,
-            },
-          ],
-        });
-
-        let companies: Company[] = [];
-        const firstResult = response?.results?.[0];
-        // Use 'in' operator for type safety, similar to original code
-        if (
-          firstResult &&
-          "hits" in firstResult &&
-          Array.isArray(firstResult.hits)
-        ) {
-          companies = firstResult.hits as Company[];
-        }
-
-        setFilteredCompanies(companies);
-        if (!open) setOpen(true); // Open popover when results are ready or empty
-      } catch (err) {
-        console.error("Algolia search error:", err);
-        setFilteredCompanies([]);
-        if (!open) setOpen(true); // Open popover even on error to show empty state
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [open]
-  ); // Include open in dependencies to avoid stale closure issue with setOpen
-
-  // Effect to run the debounced search
+  // "/" shortcut to open search
   useEffect(() => {
-    const handler = setTimeout(() => {
-      runSearch(searchQuery);
-    }, 300); // Debounce search by 300ms
-
-    return () => {
-      clearTimeout(handler);
+    const down = (e: KeyboardEvent) => {
+      if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)
+      ) {
+        e.preventDefault();
+        setCommandOpen(true);
+      }
     };
-  }, [searchQuery, runSearch]);
 
-  // Effect to close popover if query is empty and not loading
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
+  // Focus input when dialog opens
   useEffect(() => {
-    if (!searchQuery && !isLoading) {
-      setOpen(false);
+    if (commandOpen && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+        setSearchQuery("");
+        setCompanies([]);
+      }, 0);
     }
-  }, [searchQuery, isLoading]);
+  }, [commandOpen]);
 
-  const handleSelect = (company: Company) => {
-    setOpen(false); // Close popover
-    setSearchQuery(""); // Clear search query
-    onCompanySelect(company);
-    // Optional: Blur input after selection
-    // document.activeElement instanceof HTMLElement && document.activeElement.blur();
+  // Search function
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setCompanies([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await searchClient.search({
+        requests: [
+          {
+            indexName: ALGOLIA_INDEX_NAME,
+            query,
+            hitsPerPage: 10,
+          },
+        ],
+      });
+
+      const firstResult = response?.results?.[0];
+      if (
+        firstResult &&
+        "hits" in firstResult &&
+        Array.isArray(firstResult.hits)
+      ) {
+        setCompanies(firstResult.hits as Company[]);
+      } else {
+        setCompanies([]);
+      }
+    } catch (err) {
+      console.error("Algolia search error:", err);
+      setCompanies([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Wrap the entire structure in Command
+  // Debounced search
+  useEffect(() => {
+    if (!commandOpen) return;
+
+    const timer = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, commandOpen]);
+
+  const handleCompanySelect = (company: Company) => {
+    if (company.symbol && pathname) {
+      const currentPathSegments = pathname.split("/").filter(Boolean);
+      const currentSectionPath =
+        currentPathSegments[currentPathSegments.length - 1];
+      const targetSection =
+        sections.find((s) => s.path === currentSectionPath) || sections[0];
+      const targetPath = targetSection.path;
+
+      let targetUrl = `/${company.symbol}/${targetPath}`;
+      if (targetPath === "concall" && window.location.hash) {
+        targetUrl += window.location.hash;
+      }
+      setCommandOpen(false);
+      router.push(targetUrl);
+    }
+  };
+
   return (
-    <Command
-      shouldFilter={false} // We handle filtering via Algolia
-      // className="relative overflow-visible self-center" // Remove self-center, let parent handle alignment
-      className="relative overflow-visible w-80" // Add width here to the root Command element
-    >
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          {/* Wrapper div for positioning the icon */}
-          {/* Remove the wrapper div and explicit Search icon. Let CommandInput handle its own styling and icon. */}
-          <CommandInput
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            placeholder="Search companies..."
-            ref={inputRef} // Assign ref here
-            // Remove default border/ring styles, add subtle bottom border on focus for clarity
-            // Apply standard input styles for better integration
-            className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            // Open popover on focus if there's a query or results
-            onFocus={() =>
-              (searchQuery || filteredCompanies.length > 0) && setOpen(true)
-            }
-          />
-        </PopoverTrigger>
-        <PopoverContent
-          className="p-0" // Remove fixed width, let it match trigger
-          style={{ width: "var(--radix-popover-trigger-width)" }} // Dynamically set width to match trigger
-          // Prevent popover from stealing focus on open, keep focus on input
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          // Ensure popover closes on Escape unless the input itself is focused
-          onEscapeKeyDown={() => {
-            if (inputRef.current !== document.activeElement) {
-              setOpen(false);
-            }
-            // If input is focused, CommandInput's default Escape behavior takes over
-          }}
-        >
-          {/* CommandList is now a direct child of Command */}
-          <CommandList>
-            {isLoading && <CommandEmpty>Loading...</CommandEmpty>}
-            {!isLoading && filteredCompanies.length === 0 && searchQuery ? (
-              <CommandEmpty>
-                No results found for &quot;{searchQuery}&quot;
-              </CommandEmpty>
-            ) : null}
-            {/* Render only when not loading and there are companies */}
-            {!isLoading &&
-              filteredCompanies.map((company) => (
+    <>
+      <div
+        className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer w-64"
+        onClick={() => setCommandOpen(true)}
+      >
+        <Search className="h-4 w-4 text-slate-400" />
+        <span className="text-sm text-slate-500 dark:text-slate-400">
+          Search companies...
+        </span>
+        <kbd className="ml-auto text-xs bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 font-mono">
+          /
+        </kbd>
+      </div>
+
+      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+        <DialogTitle className="sr-only">Search Companies</DialogTitle>
+        <CommandInput
+          ref={inputRef}
+          placeholder="Search companies..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
+        <CommandList>
+          {isLoading ? (
+            <CommandEmpty>Loading...</CommandEmpty>
+          ) : searchQuery.trim() === "" ? (
+            <CommandEmpty>Type to search companies...</CommandEmpty>
+          ) : companies.length === 0 ? (
+            <CommandEmpty>No companies found</CommandEmpty>
+          ) : (
+            <CommandGroup heading="Companies">
+              {companies.map((company) => (
                 <CommandItem
                   key={company.objectID}
-                  // Provide a unique value for Command's internal handling
-                  value={`${company.symbol}-${company.name}-${company.objectID}`}
-                  onSelect={() => handleSelect(company)}
-                  className="cursor-pointer"
+                  value={`${company.symbol} ${company.name}`}
+                  onSelect={() => handleCompanySelect(company)}
                 >
-                  {/* Result Item Structure */}
-                  <div>
-                    <div className="font-medium text-sm">
-                      {company.symbol || "N/A"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {company.name || "N/A"}
+                  <div className="flex flex-col items-start">
+                    <div className="font-medium">{company.symbol}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {company.name}
                     </div>
                   </div>
                 </CommandItem>
               ))}
-          </CommandList>
-        </PopoverContent>
-      </Popover>
-    </Command>
+            </CommandGroup>
+          )}
+        </CommandList>
+      </CommandDialog>
+    </>
   );
 }

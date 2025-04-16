@@ -1,13 +1,12 @@
 "use client";
 import React, { use, useState } from "react";
-
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { UserProfile } from "@/components/auth/user-profile";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { CompanySearchBox } from "@/components/shared/company-search-box";
+import { CompanySearch } from "@/components/shared/company-search-box";
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
@@ -24,37 +23,11 @@ function SymbolLayoutContent({
   const resolvedParams = use(params);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const { user, loading } = useAuth();
-
-  const router = useRouter();
   const pathname = usePathname();
 
   const activeSectionId =
     sections.find((section) => pathname?.endsWith(`/${section.path}`))?.id ||
     sections[0].id;
-
-  // Define Company type locally or import if defined elsewhere globally
-  interface Company {
-    objectID: string;
-    symbol: string;
-    name: string;
-  }
-
-  const handleCompanySelect = (company: Company) => {
-    if (company.symbol && pathname) {
-      const currentPathSegments = pathname.split("/").filter(Boolean);
-      const currentSectionPath =
-        currentPathSegments[currentPathSegments.length - 1];
-      const targetSection =
-        sections.find((s) => s.path === currentSectionPath) || sections[0];
-      const targetPath = targetSection.path;
-
-      let targetUrl = `/${company.symbol}/${targetPath}`;
-      if (targetPath === "concall" && window.location.hash) {
-        targetUrl += window.location.hash;
-      }
-      router.push(targetUrl);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -68,10 +41,12 @@ function SymbolLayoutContent({
           >
             ArthaLens
           </Link>
-          {/* Search - Wrap in a div that grows and centers the content */}
+
+          {/* Search */}
           <div className="flex-1 flex justify-center">
-            <CompanySearchBox onCompanySelect={handleCompanySelect} />
+            <CompanySearch sections={sections} />
           </div>
+
           {/* Auth & Theme */}
           <div className="flex items-center gap-3">
             {loading ? (
