@@ -40,7 +40,10 @@ import {
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { replaceCitationsWithLinks } from "@/lib/utils";
+import {
+  replaceCitationsWithLinks,
+  addLineBreakBetweenQandA,
+} from "@/lib/utils";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -67,8 +70,7 @@ interface Transcript {
   parsed: boolean;
   symbol: string;
   date_dt: string;
-  fiscal_period: Record<string, unknown>;
-  fiscal_quarter: string;
+  fiscal_period: string;
   guidance_changes?: string;
 }
 
@@ -108,7 +110,7 @@ export default function EarningsCall() {
     const fetchTranscripts = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8000/concalls?symbol=${symbol}`
+          `http://localhost:8000/concalls/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch transcripts");
 
@@ -361,7 +363,7 @@ export default function EarningsCall() {
     <>
       {/* Consistent Title and Description like Overview */}
       <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-        Earnings Call Analysis
+        {symbol}: Earnings Call Analysis
       </h1>
       <p className="text-muted-foreground mb-4">
         Comprehensive analysis of quarterly earnings calls
@@ -391,7 +393,7 @@ export default function EarningsCall() {
               >
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />
-                  <span>{selectedTranscript.fiscal_quarter}</span>
+                  <span>{selectedTranscript.fiscal_period}</span>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               </Button>
@@ -412,7 +414,7 @@ export default function EarningsCall() {
                           setShowQuarterDropdown(false);
                         }}
                       >
-                        {transcript.fiscal_quarter} ({transcript.date})
+                        {transcript.fiscal_period} ({transcript.date})
                       </Button>
                     ))}
                   </div>
@@ -693,7 +695,8 @@ export default function EarningsCall() {
                           return selectedTranscript.summary;
                         if (tab.id === "qa")
                           return (
-                            selectedTranscript.qna || "No Q&A data available."
+                            addLineBreakBetweenQandA(selectedTranscript.qna) ||
+                            "No Q&A data available."
                           );
                         if (tab.id === "guidance")
                           return (

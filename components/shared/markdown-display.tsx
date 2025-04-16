@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import cn from "classnames";
 import { ArrowUp, ArrowDown, Minus, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { removeMarkdownLinks } from "@/lib/utils";
 
 interface Section {
   id: string;
@@ -212,7 +213,7 @@ export function MarkdownDisplay({
               });
             }}
           >
-            {section.title}
+            {removeMarkdownLinks(section.title)}
           </a>
         ))}
       </div>
