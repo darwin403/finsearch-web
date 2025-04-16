@@ -467,7 +467,7 @@ export default function EarningsCall() {
                         </p>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
-                        <p>Number of AI analyses you can generate today.</p>
+                        <p>Number of custom AI prompts you can run today.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -483,17 +483,17 @@ export default function EarningsCall() {
                   className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
                 >
                   <Sparkles className="h-4 w-4" />
-                  AI Custom Analysis
+                  Custom AI Prompt
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
                 <DialogHeader>
                   <DialogTitle className="text-slate-900 dark:text-slate-100">
-                    Create Custom Analysis
+                    Create Custom AI Prompt
                   </DialogTitle>
                   <DialogDescription className="text-slate-600 dark:text-slate-400">
-                    Create a custom tab with AI analysis of this earnings
-                    transcript.
+                    Create a custom tab using an AI prompt to analyze this
+                    earnings transcript.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -622,7 +622,7 @@ export default function EarningsCall() {
                   />
                 )}
 
-                {/* Custom Analysis Tabs */}
+                {/* Custom AI Prompt Tabs */}
                 {customTabs.map((tab) => (
                   <div
                     key={tab.id}
@@ -634,7 +634,7 @@ export default function EarningsCall() {
                     >
                       {tab.title}
                     </TabsTrigger>
-                    {/* Edit button for custom analysis tabs */}
+                    {/* Edit button for custom AI prompt tabs */}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -650,14 +650,14 @@ export default function EarningsCall() {
                   </div>
                 ))}
               </TabsList>
-              {/* Regenerate button (only for custom analysis tabs) */}
+              {/* Regenerate button (only for custom AI prompt tabs) */}
               {(() => {
                 const activeTabData = customTabs.find(
                   (t) => t.id === activeTab
                 );
-                const isCustomAnalysisTab = !!activeTabData;
+                const isCustomPromptTab = !!activeTabData;
 
-                if (!isCustomAnalysisTab) return null;
+                if (!isCustomPromptTab) return null;
 
                 return (
                   <Button
@@ -714,7 +714,7 @@ export default function EarningsCall() {
               </TabsContent>
             ))}
 
-            {/* Custom Analysis Tab Contents (Mock Data) */}
+            {/* Custom AI Prompt Tab Contents (Mock Data) */}
             {customTabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                 <div className="p-6">
@@ -722,7 +722,7 @@ export default function EarningsCall() {
                     {tab.title} (Mock Analysis)
                   </h3>
                   <p className="text-slate-700 dark:text-slate-300 mb-4">
-                    This is mock content generated based on the custom analysis
+                    This is mock content generated based on the custom AI
                     prompt. Real-time analysis via streaming is currently
                     disabled.
                   </p>
@@ -741,15 +741,15 @@ export default function EarningsCall() {
         </Card>
       </div>
 
-      {/* Edit Custom Tab Dialog */}
+      {/* Edit Custom AI Prompt Tab Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
           <DialogHeader>
             <DialogTitle className="text-slate-900 dark:text-slate-100">
-              Edit Analysis Tab
+              Edit Custom AI Prompt Tab
             </DialogTitle>
             <DialogDescription className="text-slate-600 dark:text-slate-400">
-              Update the name and prompt for this custom analysis tab.
+              Update the name and prompt for this custom AI prompt tab.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
