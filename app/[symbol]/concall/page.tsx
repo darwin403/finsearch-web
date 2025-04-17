@@ -492,8 +492,8 @@ export default function EarningsCall() {
                     Create Custom AI Prompt
                   </DialogTitle>
                   <DialogDescription className="text-slate-600 dark:text-slate-400">
-                    Create a custom tab using an AI prompt to analyze this
-                    earnings transcript.
+                    Create a custom analysis tab using an AI prompt to analyze
+                    earnings transcripts.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -501,7 +501,7 @@ export default function EarningsCall() {
                   {/* Sample Prompts Section */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Sample Templates
+                      Sample Prompts
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       {SAMPLE_PROMPTS.map((prompt) => (
