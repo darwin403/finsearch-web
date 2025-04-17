@@ -23,7 +23,7 @@ const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 interface Company {
   objectID: string;
   symbol: string;
-  name: string;
+  company_name: string;
 }
 
 interface CompanySearchProps {
@@ -168,13 +168,13 @@ export function CompanySearch({ sections }: CompanySearchProps) {
               {companies.map((company) => (
                 <CommandItem
                   key={company.objectID}
-                  value={`${company.symbol} ${company.name}`}
+                  value={`${company.symbol} ${company.company_name}`}
                   onSelect={() => handleCompanySelect(company)}
                 >
                   <div className="flex flex-col items-start">
                     <div className="font-medium">{company.symbol}</div>
                     <div className="text-sm text-muted-foreground">
-                      {company.name}
+                      {company.company_name}
                     </div>
                   </div>
                 </CommandItem>
