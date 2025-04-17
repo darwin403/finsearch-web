@@ -5,9 +5,11 @@ export async function generateMetadata({
 }: {
   params: { symbol: string };
 }): Promise<Metadata> {
+  const resolvedParams = await params;
+
   return {
-    title: `${params.symbol.toUpperCase()} Overview`,
-    description: `Company overview and key information for ${params.symbol.toUpperCase()} - Financial metrics, business description, and key statistics.`,
+    title: `${resolvedParams.symbol.toUpperCase()} Overview`,
+    description: `Company overview and key information for ${resolvedParams.symbol.toUpperCase()} - Financial metrics, business description, and key statistics.`,
   };
 }
 

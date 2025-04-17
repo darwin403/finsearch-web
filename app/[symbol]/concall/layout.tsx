@@ -5,9 +5,11 @@ export async function generateMetadata({
 }: {
   params: { symbol: string };
 }): Promise<Metadata> {
+  const resolvedParams = await params;
+
   return {
-    title: `${params.symbol.toUpperCase()} Earnings Calls`,
-    description: `Earnings call transcripts and analysis for ${params.symbol.toUpperCase()} - Quarterly earnings calls, Q&A sessions, and management commentary.`,
+    title: `${resolvedParams.symbol.toUpperCase()} Earnings Calls`,
+    description: `Earnings call transcripts and analysis for ${resolvedParams.symbol.toUpperCase()} - Quarterly earnings calls, Q&A sessions, and management commentary.`,
   };
 }
 
