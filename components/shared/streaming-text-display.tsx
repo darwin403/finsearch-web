@@ -135,7 +135,7 @@ export function StreamingTextDisplay({
       loadingComponent || (
         <div className="flex flex-col items-center justify-center py-8 text-slate-500 dark:text-slate-400">
           <RefreshCcw className="h-6 w-6 mb-2 animate-spin" />
-          <span>Generating analysis...</span>
+          <span>Loading...</span>
         </div>
       )
     );

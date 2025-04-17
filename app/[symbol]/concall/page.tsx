@@ -722,15 +722,10 @@ export default function EarningsCall() {
             {customTabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold mb-3 text-slate-800 dark:text-slate-200">
-                    {tab.title} (Mock Analysis)
-                  </h3>
-                  <p className="text-slate-700 dark:text-slate-300 mb-4">
-                    This is mock content generated based on the custom AI
-                    prompt. Real-time analysis via streaming is currently
-                    disabled.
-                  </p>
-                  <StreamingTextDisplay eventSourceUrl="http://localhost:8000/process-transcript/?url=https://www.bseindia.com/xml-data/corpfiling/AttachHis/b6f0f010-c0d7-4ceb-a825-0c7c17105b31.pdf&tab_id=1744602046978" />
+                  <StreamingTextDisplay
+                    eventSourceUrl={`http://localhost:8000/process-transcript/?url=${selectedTranscript.url}&tab_id=${tab.id}`}
+                    showToc={tab.showToc}
+                  />
                 </div>
               </TabsContent>
             ))}
