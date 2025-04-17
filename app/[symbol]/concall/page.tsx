@@ -44,6 +44,7 @@ import {
   replaceCitationsWithLinks,
   addLineBreakBetweenQandA,
 } from "@/lib/utils";
+import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -692,7 +693,10 @@ export default function EarningsCall() {
                     markdownContent={replaceCitationsWithLinks(
                       (() => {
                         if (tab.id === "summary")
-                          return selectedTranscript.summary;
+                          return (
+                            selectedTranscript.summary ||
+                            "No Summary data available."
+                          );
                         if (tab.id === "qa")
                           return (
                             addLineBreakBetweenQandA(selectedTranscript.qna) ||
@@ -726,14 +730,7 @@ export default function EarningsCall() {
                     prompt. Real-time analysis via streaming is currently
                     disabled.
                   </p>
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-                      Analysis Prompt Used:
-                    </p>
-                    <p className="text-sm text-slate-800 dark:text-slate-200 font-mono bg-white dark:bg-slate-900 p-2 rounded text-xs">
-                      {tab.prompt || "No prompt defined"}
-                    </p>
-                  </div>
+                  <StreamingTextDisplay eventSourceUrl="http://localhost:8000/process-transcript/?url=https://www.bseindia.com/xml-data/corpfiling/AttachHis/b6f0f010-c0d7-4ceb-a825-0c7c17105b31.pdf&tab_id=1744602046978" />
                 </div>
               </TabsContent>
             ))}

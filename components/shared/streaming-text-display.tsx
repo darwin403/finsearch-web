@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { RefreshCcw } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display"; // Assuming we want markdown rendering
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 
 interface StreamingTextDisplayProps {
   eventSourceUrl: string;
@@ -28,6 +30,7 @@ export function StreamingTextDisplay({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | Error | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     // Reset state when URL or triggerKey changes
@@ -45,53 +48,78 @@ export function StreamingTextDisplay({
       return;
     }
 
-    try {
-      // Note: EventSource doesn't easily support custom headers for auth.
-      // Auth usually handled via cookies (withCredentials: true) or query params.
-      const es = new EventSource(eventSourceUrl, { withCredentials: true });
-      eventSourceRef.current = es;
+    const setupEventSource = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
 
-      es.onopen = () => {
-        // console.log("EventSource connected:", eventSourceUrl);
-        // Still loading until first message or error
-      };
-
-      es.onmessage = (event) => {
-        try {
-          // Assuming server sends JSON strings that need parsing
-          const newData = JSON.parse(event.data);
-          setAccumulatedText((prev) => prev + newData);
-          setIsLoading(false); // Stop loading on first message
-          setError(null); // Clear previous error if connection succeeds
-        } catch (e) {
-          console.error(
-            "Error parsing stream data:",
-            e,
-            "Raw data:",
-            event.data
-          );
-          // Handle non-JSON data if necessary, e.g., just append event.data
-          // setAccumulatedText((prev) => prev + event.data);
-          // setIsLoading(false);
+        if (!token) {
+          setError("Authentication required");
+          setIsLoading(false);
+          return;
         }
-      };
 
-      es.onerror = (err) => {
-        console.error("EventSource failed:", err);
-        setError(`Connection error with the analysis service.`);
+        const urlWithToken = new URL(eventSourceUrl);
+        urlWithToken.searchParams.append("token", token);
+
+        const es = new EventSource(urlWithToken.toString());
+        eventSourceRef.current = es;
+
+        es.onopen = () => {
+          // console.log("EventSource connected:", eventSourceUrl);
+          // Still loading until first message or error
+        };
+
+        es.onmessage = (event) => {
+          try {
+            // Check if this is the DONE message
+            if (event.data === "[DONE]") {
+              setIsLoading(false);
+              setError(null);
+              es.close(); // Close the connection when done
+              eventSourceRef.current = null;
+              return;
+            }
+
+            // Assuming server sends JSON strings that need parsing
+            const newData = JSON.parse(event.data);
+            setAccumulatedText((prev) => prev + newData);
+            setIsLoading(false); // Stop loading on first message
+            setError(null); // Clear previous error if connection succeeds
+          } catch (e) {
+            console.error(
+              "Error parsing stream data:",
+              e,
+              "Raw data:",
+              event.data
+            );
+            // Handle non-JSON data if necessary, e.g., just append event.data
+            // setAccumulatedText((prev) => prev + event.data);
+            // setIsLoading(false);
+          }
+        };
+
+        es.onerror = (err) => {
+          console.error("EventSource failed:", err);
+          setError(`Connection error with the analysis service.`);
+          setIsLoading(false);
+          es.close(); // Close on error
+          eventSourceRef.current = null;
+        };
+      } catch (err) {
+        console.error("Failed to create EventSource:", err);
+        setError(
+          err instanceof Error
+            ? err
+            : "Failed to create connection to analysis service."
+        );
         setIsLoading(false);
-        es.close(); // Close on error
-        eventSourceRef.current = null;
-      };
-    } catch (err) {
-      console.error("Failed to create EventSource:", err);
-      setError(
-        err instanceof Error
-          ? err
-          : "Failed to create connection to analysis service."
-      );
-      setIsLoading(false);
-    }
+      }
+    };
+
+    setupEventSource();
 
     // Cleanup function
     return () => {
@@ -100,7 +128,7 @@ export function StreamingTextDisplay({
       eventSourceRef.current = null;
     };
     // Dependency array includes eventSourceUrl and triggerKey
-  }, [eventSourceUrl, initialContent, triggerKey]);
+  }, [eventSourceUrl, initialContent, triggerKey, user]);
 
   if (isLoading) {
     return (
