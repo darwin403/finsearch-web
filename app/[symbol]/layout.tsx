@@ -7,6 +7,7 @@ import { LoginDialog } from "@/components/auth/login-dialog";
 import { UserProfile } from "@/components/auth/user-profile";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { CompanySearch } from "@/components/shared/company-search-box";
+import { Badge } from "@/components/ui/badge";
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
@@ -35,12 +36,20 @@ function SymbolLayoutContent({
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           {/* Logo */}
-          <Link
-            href="/"
-            className="text-xl font-semibold text-slate-900 dark:text-slate-50"
-          >
-            ArthaLens
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/"
+              className="text-xl font-semibold text-slate-900 dark:text-slate-50"
+            >
+              ArthaLens
+            </Link>
+            <Badge
+              variant="secondary"
+              className="px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0"
+            >
+              Beta v0.1
+            </Badge>
+          </div>
 
           {/* Search */}
           <div className="flex-1 flex justify-center">
