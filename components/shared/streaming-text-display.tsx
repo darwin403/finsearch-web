@@ -80,13 +80,14 @@ export function StreamingTextDisplay({
           }
         };
 
-        es.onerror = (err) => {
-          console.error("EventSource failed:", err);
-          setError(`Connection error with the analysis service.`);
-          setIsLoading(false);
-          es.close();
-          eventSourceRef.current = null;
-        };
+        // ! TEMP FIX: Randomly throws error and block user from viewing the text generated
+        // es.onerror = (err) => {
+        //   console.error("EventSource failed:", err);
+        //   setError(`Connection error with the analysis service.`);
+        //   setIsLoading(false);
+        //   es.close();
+        //   eventSourceRef.current = null;
+        // };
       } catch (err) {
         console.error("Failed to create EventSource:", err);
         setError(

@@ -7,7 +7,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useQueryState } from "nuqs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
@@ -88,7 +89,6 @@ interface TabConfig {
 export default function EarningsCall() {
   const params = useParams();
   const symbol = (params.symbol as string) || "UNKNOWN";
-  const router = useRouter();
   const { user } = useAuth();
 
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -106,6 +106,12 @@ export default function EarningsCall() {
   const [selectedSamplePrompt, setSelectedSamplePrompt] = useState<
     string | null
   >(null);
+
+  // Use nuqs for URL state management
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "summary",
+    parse: (value) => value || "summary",
+  });
 
   // Fetch transcript data
   useEffect(() => {
@@ -157,7 +163,6 @@ export default function EarningsCall() {
   ];
 
   const [customTabs, setCustomTabs] = useState<TabConfig[]>([]);
-  const [activeTab, setActiveTab] = useState("summary");
 
   // Load custom tabs
   useDeepCompareEffect(() => {
@@ -225,27 +230,6 @@ export default function EarningsCall() {
     }
   }, [customTabs, user]);
 
-  // Sync URL hash with activeTab on mount
-  useEffect(() => {
-    const currentHash = window.location.hash.substring(1);
-    const allValidTabIds = [
-      ...defaultTabs.map((tab) => tab.id),
-      ...customTabs.map((tab) => tab.id),
-    ];
-    const isValidTab = allValidTabIds.includes(currentHash);
-
-    if (isValidTab && currentHash !== activeTab) {
-      setActiveTab(currentHash);
-    } else if (
-      !isValidTab &&
-      activeTab !== "summary" &&
-      defaultTabs.length > 0
-    ) {
-      setActiveTab(defaultTabs[0].id);
-      router.replace(`#${defaultTabs[0].id}`, { scroll: false });
-    }
-  }, [customTabs]);
-
   // Handle selecting a sample prompt
   const handleSelectSamplePrompt = (promptId: string) => {
     const selectedPrompt = SAMPLE_PROMPTS.find((p) => p.id === promptId);
@@ -256,10 +240,9 @@ export default function EarningsCall() {
     }
   };
 
-  // Update state and URL hash on tab change
+  // Update state and URL on tab change
   const handleTabChange = (newTabId: string) => {
     setActiveTab(newTabId);
-    router.replace(`#${newTabId}`, { scroll: false });
   };
 
   // Transcript navigation
@@ -329,11 +312,8 @@ export default function EarningsCall() {
       )
     );
 
-    // Update active tab if the edited tab was active
-    if (activeTab === editingTabId) {
-      setActiveTab(newTabId);
-      router.replace(`#${newTabId}`, { scroll: false });
-    }
+    // Always activate the updated tab
+    setActiveTab(newTabId);
 
     setIsEditDialogOpen(false);
     setEditingTabId(null);
@@ -344,7 +324,6 @@ export default function EarningsCall() {
 
     if (activeTab === tabId) {
       setActiveTab("summary");
-      router.replace("#summary", { scroll: false });
     }
 
     setIsEditDialogOpen(false);
