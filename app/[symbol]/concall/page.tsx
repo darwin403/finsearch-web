@@ -46,6 +46,7 @@ import {
 } from "@/lib/utils";
 import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 import { LoginDialog } from "@/components/auth/login-dialog";
+import { config } from "@/lib/config";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -144,7 +145,7 @@ export default function EarningsCall() {
     const fetchTranscripts = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8000/concalls/?symbol=${symbol}`
+          `${config.api.baseUrl}/concalls/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch transcripts");
 
@@ -705,7 +706,7 @@ export default function EarningsCall() {
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                 <div className="p-6">
                   <StreamingTextDisplay
-                    eventSourceUrl={`http://localhost:8000/process-transcript/?url=${selectedTranscript.url}&tab_id=${tab.id}`}
+                    eventSourceUrl={`${config.api.baseUrl}/process-transcript/?url=${selectedTranscript.url}&tab_id=${tab.id}`}
                     showToc={tab.showToc}
                   />
                 </div>
