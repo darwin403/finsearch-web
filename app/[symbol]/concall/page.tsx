@@ -34,15 +34,16 @@ import {
   ChevronDown,
   Edit,
   Trash2,
-  RefreshCcw,
   Check,
 } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
+import { useDeepCompareEffect } from "react-use";
 import {
   replaceCitationsWithLinks,
   addLineBreakBetweenQandA,
+  generateTabId,
 } from "@/lib/utils";
 import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 
@@ -159,7 +160,7 @@ export default function EarningsCall() {
   const [activeTab, setActiveTab] = useState("summary");
 
   // Load custom tabs
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     const loadCustomTabs = async () => {
       if (!user) {
         setCustomTabs([]);
@@ -183,21 +184,26 @@ export default function EarningsCall() {
     };
 
     loadCustomTabs();
-  }, [symbol, user]);
+  }, [user?.user_metadata?.customTabs]);
 
   // Save custom tabs to user metadata
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     const saveCustomTabs = async () => {
       if (!user) return;
 
       try {
-        const customTabsToSave = customTabs;
-
         const currentMetadata = user?.user_metadata || {};
+        const existingCustomTabs = currentMetadata.customTabs || [];
+
+        // Check if custom tabs have actually changed
+        const hasChanges =
+          JSON.stringify(existingCustomTabs) !== JSON.stringify(customTabs);
+
+        if (!hasChanges) return;
 
         const updatedMetadata = {
           ...currentMetadata,
-          customTabs: customTabsToSave,
+          customTabs: customTabs,
         };
 
         const { error } = await supabase.auth.updateUser({
@@ -213,10 +219,10 @@ export default function EarningsCall() {
       }
     };
 
-    // ! TEMP FIX: temporarily removed this, infinite PUT triggered on supabase endpoint
-    // if (customTabs.length > 0) {
-    //   saveCustomTabs();
-    // }
+    // Only attempt to save if there are custom tabs
+    if (customTabs.length > 0) {
+      saveCustomTabs();
+    }
   }, [customTabs, user]);
 
   // Sync URL hash with activeTab on mount
@@ -278,7 +284,7 @@ export default function EarningsCall() {
   // Add a new custom analysis tab
   const addCustomTab = () => {
     if (newTabName && newTabPrompt) {
-      const newTabId = Date.now().toString();
+      const newTabId = generateTabId(newTabName, newTabPrompt);
       const newTab: TabConfig = {
         id: newTabId,
         title: newTabName,
@@ -312,13 +318,22 @@ export default function EarningsCall() {
   const handleUpdateTab = () => {
     if (!editingTabId || !editTabName || !editTabPrompt) return;
 
+    // Generate a new ID based on the updated title and prompt
+    const newTabId = generateTabId(editTabName, editTabPrompt);
+
     setCustomTabs((prevTabs) =>
       prevTabs.map((tab) =>
         tab.id === editingTabId
-          ? { ...tab, title: editTabName, prompt: editTabPrompt }
+          ? { ...tab, id: newTabId, title: editTabName, prompt: editTabPrompt }
           : tab
       )
     );
+
+    // Update active tab if the edited tab was active
+    if (activeTab === editingTabId) {
+      setActiveTab(newTabId);
+      router.replace(`#${newTabId}`, { scroll: false });
+    }
 
     setIsEditDialogOpen(false);
     setEditingTabId(null);
@@ -652,7 +667,7 @@ export default function EarningsCall() {
                 ))}
               </TabsList>
               {/* Regenerate button (only for custom AI prompt tabs) */}
-              {(() => {
+              {/* {(() => {
                 const activeTabData = customTabs.find(
                   (t) => t.id === activeTab
                 );
@@ -673,7 +688,7 @@ export default function EarningsCall() {
                     Regenerate
                   </Button>
                 );
-              })()}
+              })()} */}
             </div>
             {/* Tab Content Area */}
             {/* Default Tab Contents */}
@@ -718,7 +733,6 @@ export default function EarningsCall() {
               </TabsContent>
             ))}
 
-            {/* Custom AI Prompt Tab Contents (Mock Data) */}
             {customTabs.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="m-0 mt-0">
                 <div className="p-6">

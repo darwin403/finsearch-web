@@ -1,8 +1,28 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import slugify from "slugify";
+import stringHash from "string-hash";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Generate a unique tab ID based on title and prompt
+ * 
+ * @param {string} title - The title of the tab
+ * @param {string} prompt - The prompt text
+ * @returns {string} - A unique, concise ID for the tab
+ */
+export function generateTabId(title: string, prompt: string): string {
+  // Create a slug from the title
+  const titleSlug = slugify(title, { lower: true, strict: true });
+  
+  // Create a hash from the prompt content
+  const promptHash = stringHash(prompt).toString(36).substring(0, 4);
+  
+  // Combine title slug and prompt hash
+  return `${titleSlug}-${promptHash}`;
 }
 
 export function removeMarkdownLinks(markdownString: string): string {
