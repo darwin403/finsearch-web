@@ -111,22 +111,10 @@ function SymbolLayoutContent({
           </p>
           <div className="flex gap-4 mt-2 md:mt-0">
             <Link
-              href="/about"
+              href="/"
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline"
             >
               About
-            </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline"
-            >
-              Terms
-            </Link>
-            <Link
-              href="/privacy"
-              className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline"
-            >
-              Privacy
             </Link>
           </div>
         </div>
