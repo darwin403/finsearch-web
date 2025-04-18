@@ -90,8 +90,8 @@ export function UserProfile() {
                 <span>
                   {" "}
                   {/* Removed font-medium */}
-                  {user.user_metadata.generations_today ?? 0} /{" "}
-                  {user.user_metadata.max_generations_per_day ?? 5}
+                  {user.app_metadata.transcript_parsing_count ?? 0} /{" "}
+                  {user.user_metadata.max_generations_per_day ?? 50}
                 </span>
               </p>
             </div>

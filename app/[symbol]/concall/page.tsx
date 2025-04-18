@@ -40,7 +40,6 @@ import {
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
-import { useDeepCompareEffect } from "react-use";
 import {
   replaceCitationsWithLinks,
   addLineBreakBetweenQandA,
@@ -113,6 +112,32 @@ export default function EarningsCall() {
     parse: (value) => value || "summary",
   });
 
+  const [customTabs, setCustomTabs] = useState<TabConfig[]>([]);
+
+  // Define default tabs
+  const defaultTabs: TabConfig[] = [
+    {
+      id: "summary",
+      title: "Summary",
+      type: "default",
+      icon: <FileText className="h-4 w-4" />,
+      showToc: true,
+    },
+    {
+      id: "qa",
+      title: "Q&A",
+      type: "default",
+      icon: <MessageSquare className="h-4 w-4" />,
+      showToc: true,
+    },
+    {
+      id: "guidance",
+      title: "Guidance",
+      type: "default",
+      icon: <Target className="h-4 w-4" />,
+    },
+  ];
+
   // Fetch transcript data
   useEffect(() => {
     const fetchTranscripts = async () => {
@@ -139,96 +164,41 @@ export default function EarningsCall() {
     fetchTranscripts();
   }, [symbol]);
 
-  const defaultTabs: TabConfig[] = [
-    {
-      id: "summary",
-      title: "Summary",
-      type: "default",
-      icon: <FileText className="h-4 w-4" />,
-      showToc: true,
-    },
-    {
-      id: "qa",
-      title: "Q&A",
-      type: "default",
-      icon: <MessageSquare className="h-4 w-4" />,
-      showToc: true,
-    },
-    {
-      id: "guidance",
-      title: "Guidance",
-      type: "default",
-      icon: <Target className="h-4 w-4" />,
-    },
-  ];
-
-  const [customTabs, setCustomTabs] = useState<TabConfig[]>([]);
-
-  // Load custom tabs
-  useDeepCompareEffect(() => {
-    const loadCustomTabs = async () => {
-      if (!user) {
-        setCustomTabs([]);
-        return;
-      }
-
-      try {
-        const customTabs = user?.user_metadata?.customTabs || [];
-
-        const validCustomTabs = customTabs.filter(
-          (tab: TabConfig, index: number, self: TabConfig[]) =>
-            tab.type === "analysis" &&
-            index === self.findIndex((t) => t.id === tab.id)
-        );
-
-        setCustomTabs(validCustomTabs);
-      } catch (error) {
-        console.error("Failed to load custom tabs from user metadata:", error);
-        setCustomTabs([]);
-      }
-    };
-
-    loadCustomTabs();
-  }, [user?.user_metadata?.customTabs]);
-
-  // Save custom tabs to user metadata
-  useDeepCompareEffect(() => {
-    const saveCustomTabs = async () => {
-      if (!user) return;
-
-      try {
-        const currentMetadata = user?.user_metadata || {};
-        const existingCustomTabs = currentMetadata.customTabs || [];
-
-        // Check if custom tabs have actually changed
-        const hasChanges =
-          JSON.stringify(existingCustomTabs) !== JSON.stringify(customTabs);
-
-        if (!hasChanges) return;
-
-        const updatedMetadata = {
-          ...currentMetadata,
-          customTabs: customTabs,
-        };
-
-        const { error } = await supabase.auth.updateUser({
-          data: updatedMetadata,
-        });
-
-        if (error) {
-          console.error("Error updating user metadata:", error);
-          throw error;
-        }
-      } catch (error) {
-        console.error("Failed to save custom tabs to user metadata:", error);
-      }
-    };
-
-    // Only attempt to save if there are custom tabs
-    if (customTabs.length > 0) {
-      saveCustomTabs();
+  // Load custom tabs only once during initial mount
+  useEffect(() => {
+    if (!user) {
+      setCustomTabs([]);
+      return;
     }
-  }, [customTabs, user]);
+
+    const customTabsFromUser = user?.app_metadata?.customTabs || [];
+    const validCustomTabs = customTabsFromUser.filter(
+      (tab: TabConfig, index: number, self: TabConfig[]) =>
+        tab.type === "analysis" &&
+        index === self.findIndex((t) => t.id === tab.id)
+    );
+
+    setCustomTabs(validCustomTabs);
+  }, [user?.id]);
+
+  // Save custom tabs to user metadata without causing a re-render cascade
+  const saveCustomTabsToSupabase = async (tabsToSave: TabConfig[]) => {
+    if (!user) return;
+
+    try {
+      const currentMetadata = user?.app_metadata || {};
+      const updatedMetadata = {
+        ...currentMetadata,
+        customTabs: tabsToSave,
+      };
+
+      await supabase.auth.updateUser({
+        data: updatedMetadata,
+      });
+    } catch (error) {
+      console.error("Failed to save custom tabs to user metadata:", error);
+    }
+  };
 
   // Handle selecting a sample prompt
   const handleSelectSamplePrompt = (promptId: string) => {
@@ -264,7 +234,7 @@ export default function EarningsCall() {
     }
   };
 
-  // Add a new custom analysis tab
+  // Add a new custom analysis tab with optimistic update
   const addCustomTab = () => {
     if (newTabName && newTabPrompt) {
       const newTabId = generateTabId(newTabName, newTabPrompt);
@@ -276,10 +246,14 @@ export default function EarningsCall() {
         showToc: true,
       };
 
-      setCustomTabs((prevTabs) => [...prevTabs, newTab]);
+      // Optimistic UI update
+      const updatedTabs = [...customTabs, newTab];
+      setCustomTabs(updatedTabs);
+
+      // Background save without waiting for response
+      saveCustomTabsToSupabase(updatedTabs);
 
       setActiveTab(newTabId);
-
       setNewTabName("");
       setNewTabPrompt("");
       setSelectedSamplePrompt(null);
@@ -287,30 +261,24 @@ export default function EarningsCall() {
     }
   };
 
-  // Edit/Delete custom tabs
-  const openEditDialog = (tabId: string) => {
-    const tabToEdit = customTabs.find((tab) => tab.id === tabId);
-    if (tabToEdit) {
-      setEditingTabId(tabId);
-      setEditTabName(tabToEdit.title);
-      setEditTabPrompt(tabToEdit.prompt || "");
-      setIsEditDialogOpen(true);
-    }
-  };
-
+  // Edit/Delete custom tabs with optimistic update
   const handleUpdateTab = () => {
     if (!editingTabId || !editTabName || !editTabPrompt) return;
 
     // Generate a new ID based on the updated title and prompt
     const newTabId = generateTabId(editTabName, editTabPrompt);
 
-    setCustomTabs((prevTabs) =>
-      prevTabs.map((tab) =>
-        tab.id === editingTabId
-          ? { ...tab, id: newTabId, title: editTabName, prompt: editTabPrompt }
-          : tab
-      )
+    const updatedTabs = customTabs.map((tab) =>
+      tab.id === editingTabId
+        ? { ...tab, id: newTabId, title: editTabName, prompt: editTabPrompt }
+        : tab
     );
+
+    // Optimistic UI update
+    setCustomTabs(updatedTabs);
+
+    // Background save without waiting for response
+    saveCustomTabsToSupabase(updatedTabs);
 
     // Always activate the updated tab
     setActiveTab(newTabId);
@@ -320,7 +288,13 @@ export default function EarningsCall() {
   };
 
   const handleDeleteTab = (tabId: string) => {
-    setCustomTabs((prevTabs) => prevTabs.filter((tab) => tab.id !== tabId));
+    const updatedTabs = customTabs.filter((tab) => tab.id !== tabId);
+
+    // Optimistic UI update
+    setCustomTabs(updatedTabs);
+
+    // Background save without waiting for response
+    saveCustomTabsToSupabase(updatedTabs);
 
     if (activeTab === tabId) {
       setActiveTab("summary");
@@ -336,6 +310,17 @@ export default function EarningsCall() {
       setSelectedSamplePrompt(null);
     }
   }, [isCreateDialogOpen]);
+
+  // Edit/Delete custom tabs
+  const openEditDialog = (tabId: string) => {
+    const tabToEdit = customTabs.find((tab) => tab.id === tabId);
+    if (tabToEdit) {
+      setEditingTabId(tabId);
+      setEditTabName(tabToEdit.title);
+      setEditTabPrompt(tabToEdit.prompt || "");
+      setIsEditDialogOpen(true);
+    }
+  };
 
   // Loading and error states
   if (loading) {
@@ -449,9 +434,9 @@ export default function EarningsCall() {
             {user &&
               (() => {
                 const maxGenerations =
-                  user.user_metadata?.max_generations_per_day ?? 5;
+                  user.app_metadata?.max_generations_per_day ?? 50;
                 const generationsToday =
-                  user.user_metadata?.generations_today ?? 0;
+                  user.app_metadata?.transcript_parsing_count ?? 0;
                 const remaining = maxGenerations - generationsToday;
                 return (
                   <TooltipProvider delayDuration={100}>
