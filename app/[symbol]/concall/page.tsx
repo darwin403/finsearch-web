@@ -22,7 +22,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Sparkles,
@@ -46,6 +45,7 @@ import {
   generateTabId,
 } from "@/lib/utils";
 import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
+import { LoginDialog } from "@/components/auth/login-dialog";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -98,6 +98,7 @@ export default function EarningsCall() {
   const [newTabName, setNewTabName] = useState("");
   const [newTabPrompt, setNewTabPrompt] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editTabName, setEditTabName] = useState("");
@@ -322,6 +323,15 @@ export default function EarningsCall() {
     }
   };
 
+  // Handle opening the Custom AI Prompt dialog with login check
+  const handleCustomPromptClick = () => {
+    if (!user) {
+      setIsLoginDialogOpen(true);
+    } else {
+      setIsCreateDialogOpen(true);
+    }
+  };
+
   // Loading and error states
   if (loading) {
     return (
@@ -431,41 +441,35 @@ export default function EarningsCall() {
           </div>
           {/* Right side controls: Remaining Generations + AI Analysis Button */}
           <div className="flex items-center gap-3">
-            {user &&
-              (() => {
-                const maxGenerations =
-                  user.app_metadata?.max_generations_per_day ?? 50;
-                const generationsToday =
-                  user.app_metadata?.transcript_parsing_count ?? 0;
-                const remaining = maxGenerations - generationsToday;
-                return (
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
-                          Remaining Today: <span>{remaining}</span>
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">
-                        <p>Number of custom AI prompts you can run today.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
-              })()}
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
+                    Remaining Today:{" "}
+                    <span>
+                      {50 - (user?.app_metadata.transcript_parsing_count ?? 0)}
+                    </span>
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <p>
+                    Number of custom AI prompts generations you can run today.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Dialog
               open={isCreateDialogOpen}
               onOpenChange={setIsCreateDialogOpen}
             >
-              <DialogTrigger asChild>
-                <Button
-                  size="sm"
-                  className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Custom AI Prompt
-                </Button>
-              </DialogTrigger>
+              <Button
+                size="sm"
+                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
+                onClick={handleCustomPromptClick}
+              >
+                <Sparkles className="h-4 w-4" />
+                Custom AI Prompt
+              </Button>
               <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
                 <DialogHeader>
                   <DialogTitle className="text-slate-900 dark:text-slate-100">
@@ -784,6 +788,12 @@ export default function EarningsCall() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Login Dialog */}
+      <LoginDialog
+        open={isLoginDialogOpen}
+        onOpenChange={setIsLoginDialogOpen}
+      />
     </>
   );
 }
