@@ -2,6 +2,7 @@
 import React, { use, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { format } from "date-fns"; // Import date-fns for formatting
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { UserProfile } from "@/components/auth/user-profile";
@@ -105,14 +106,42 @@ function SymbolLayoutContent({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 dark:border-slate-800 dark:bg-slate-950">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-center sm:px-6 md:flex-row md:text-left lg:px-8">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            © 2025 ArthaLens. All rights reserved.
-          </p>
-          <div className="flex gap-4 mt-2 md:mt-0">
+        {/* Use flex, justify-between, items-center for alignment */}
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-sm sm:px-6 lg:px-8">
+          {/* Left side: Copyright and Build Info */}
+          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+            <span>© 2025 ArthaLens. All rights reserved.</span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>{" "}
+            {/* Separator */}
+            {/* Build Info - subtle and aligned */}
+            {/* Apply text-sm to match copyright/about link, color is inherited */}
+            <div className="flex items-center gap-2 text-sm">
+              <span>Last Updated:</span> {/* Added Label */}
+              {process.env.NEXT_PUBLIC_GIT_COMMIT_DATE ? (
+                <span>
+                  {format(
+                    new Date(process.env.NEXT_PUBLIC_GIT_COMMIT_DATE),
+                    "MMM d, yyyy" // Shorter date format
+                  )}
+                </span>
+              ) : (
+                <span>N/A</span>
+              )}
+              <span className="text-slate-300 dark:text-slate-700">|</span>{" "}
+              {/* Separator */}
+              {process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ? (
+                <span>Build: {process.env.NEXT_PUBLIC_GIT_COMMIT_SHA}</span>
+              ) : (
+                <span>Dev Build</span>
+              )}
+            </div>
+          </div>
+
+          {/* Right side: About Link */}
+          <div>
             <Link
               href="/"
-              className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline"
+              className="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:underline"
             >
               About
             </Link>
