@@ -58,7 +58,7 @@ export default function Home() {
                   Have feedback, bug reports, or feature requests? We&apos;d
                   love to hear from you. Reach out to us at{" "}
                   <a
-                    href="mailto:skdcodes@gmail.com"
+                    href="mailto:sai@industrodrome.com"
                     className="text-primary hover:underline"
                   >
                     sai@industrodrome.com
