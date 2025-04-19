@@ -113,6 +113,10 @@ export default function EarningsCall() {
     defaultValue: "summary",
     parse: (value) => value || "summary",
   });
+  const [quarter, setQuarter] = useQueryState("quarter", {
+    parse: (value) => value || null, // Allow null if not present
+    defaultValue: null,
+  });
 
   const [customTabs, setCustomTabs] = useState<TabConfig[]>([]);
 
@@ -153,7 +157,16 @@ export default function EarningsCall() {
         setTranscripts(data);
 
         if (data.length > 0) {
-          setSelectedTranscript(data[0]);
+          // Try to set transcript based on URL 'quarter' first
+          const initialQuarter = quarter || data[0]?.fiscal_period;
+          const transcriptFromUrl = data.find(
+            (t: Transcript) => t.fiscal_period === initialQuarter
+          );
+          setSelectedTranscript(transcriptFromUrl || data[0]);
+          // Ensure URL state is set if it wasn't initially or didn't match
+          if (!transcriptFromUrl || !quarter) {
+            setQuarter(data[0].fiscal_period);
+          }
         }
 
         setLoading(false);
@@ -165,6 +178,25 @@ export default function EarningsCall() {
 
     fetchTranscripts();
   }, [symbol]);
+
+  // Effect to sync selectedTranscript with URL 'quarter' state
+  useEffect(() => {
+    if (quarter && transcripts.length > 0) {
+      const transcriptFromUrl = transcripts.find(
+        (t) => t.fiscal_period === quarter
+      );
+      if (
+        transcriptFromUrl &&
+        transcriptFromUrl.id !== selectedTranscript?.id
+      ) {
+        setSelectedTranscript(transcriptFromUrl);
+      } else if (!transcriptFromUrl) {
+        // If URL quarter doesn't match any transcript, reset to latest
+        setSelectedTranscript(transcripts[0]);
+        setQuarter(transcripts[0].fiscal_period);
+      }
+    }
+  }, [quarter, transcripts, selectedTranscript?.id, setQuarter]); // Added dependencies
 
   // Load custom tabs only once during initial mount
   useEffect(() => {
@@ -223,7 +255,8 @@ export default function EarningsCall() {
       (t) => t.id === selectedTranscript?.id
     );
     if (currentIndex > 0) {
-      setSelectedTranscript(transcripts[currentIndex - 1]);
+      const newTranscript = transcripts[currentIndex - 1];
+      setQuarter(newTranscript.fiscal_period);
     }
   };
 
@@ -232,7 +265,8 @@ export default function EarningsCall() {
       (t) => t.id === selectedTranscript?.id
     );
     if (currentIndex < transcripts.length - 1) {
-      setSelectedTranscript(transcripts[currentIndex + 1]);
+      const newTranscript = transcripts[currentIndex + 1];
+      setQuarter(newTranscript.fiscal_period);
     }
   };
 
@@ -401,7 +435,7 @@ export default function EarningsCall() {
                             : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                         }`}
                         onClick={() => {
-                          setSelectedTranscript(transcript);
+                          setQuarter(transcript.fiscal_period);
                           setShowQuarterDropdown(false);
                         }}
                       >
