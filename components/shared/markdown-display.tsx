@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import cn from "classnames";
 import { ArrowUp, ArrowDown, Minus, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { removeMarkdownLinks } from "@/lib/utils";
+import { removeMarkdownLinks, removeBackticks } from "@/lib/utils";
 
 interface Section {
   id: string;
@@ -231,7 +231,7 @@ export function MarkdownDisplay({
           rehypePlugins={[rehypeSlug]}
           components={MarkdownComponents}
         >
-          {markdownContent}
+          {removeBackticks(markdownContent)}
         </ReactMarkdown>
       </div>
       {showToc && sections.length > 0 && (

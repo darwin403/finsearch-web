@@ -84,3 +84,7 @@ export function replaceCitationsWithLinks(
     }
   );
 }
+
+export function removeBackticks(markdownContent: string): string {
+  return markdownContent.replace(/```/g, '');
+}
