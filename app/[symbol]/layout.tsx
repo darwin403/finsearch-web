@@ -9,6 +9,12 @@ import { UserProfile } from "@/components/auth/user-profile";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { CompanySearch } from "@/components/shared/company-search-box";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
@@ -116,14 +122,26 @@ function SymbolLayoutContent({
             {/* Build Info - subtle and aligned */}
             {/* Apply text-sm to match copyright/about link, color is inherited */}
             <div className="flex items-center gap-2 text-sm">
-              <span>Last Updated:</span> {/* Added Label */}
+              <span>Platform Updated:</span>
               {process.env.NEXT_PUBLIC_GIT_COMMIT_DATE ? (
-                <span>
-                  {format(
-                    new Date(process.env.NEXT_PUBLIC_GIT_COMMIT_DATE),
-                    "MMM d, yyyy" // Shorter date format
-                  )}
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <span>
+                        {format(
+                          new Date(process.env.NEXT_PUBLIC_GIT_COMMIT_DATE),
+                          "MMM d, yyyy"
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {format(
+                        new Date(process.env.NEXT_PUBLIC_GIT_COMMIT_DATE),
+                        "MMM d, yyyy h:mm a 'IST'"
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ) : (
                 <span>N/A</span>
               )}
