@@ -130,17 +130,17 @@ export default function EarningsCall() {
       showToc: true,
     },
     {
+      id: "guidance",
+      title: "Guidance",
+      type: "default",
+      icon: <Target className="h-4 w-4" />,
+    },
+    {
       id: "qa",
       title: "Q&A",
       type: "default",
       icon: <MessageSquare className="h-4 w-4" />,
       showToc: true,
-    },
-    {
-      id: "guidance",
-      title: "Guidance",
-      type: "default",
-      icon: <Target className="h-4 w-4" />,
     },
   ];
 
