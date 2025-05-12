@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SWRConfig } from "swr";
 import Script from "next/script";
+import { MixpanelInitializer } from "@/components/mixpanel-initializer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -70,6 +71,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <NuqsAdapter>{children}</NuqsAdapter>
+            <MixpanelInitializer />
           </ThemeProvider>
         </SWRConfig>
       </body>
