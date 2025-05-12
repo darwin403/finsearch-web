@@ -1,28 +1,40 @@
 "use client";
 
-import { useEffect } from "react";
-import mixpanel from "mixpanel-browser";
+import { useEffect, useLayoutEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { analytics } from "@/lib/analytics";
+import { usePathname } from "next/navigation";
 
 export function MixpanelInitializer() {
-  useEffect(() => {
-    const mixpanelToken = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
+  const { user } = useAuth();
+  const pathname = usePathname();
 
-    if (mixpanelToken) {
-      mixpanel.init(mixpanelToken, {
-        debug: process.env.NODE_ENV !== "production",
-        // track_pageview: true,
-        // persistence: "localStorage",
-        autocapture: true,
+  // Initialize Mixpanel once
+  useEffect(() => {
+    analytics.init();
+  }, []);
+
+  // Handle user identification
+  useLayoutEffect(() => {
+    if (user) {
+      analytics.identifyUser(user.id, {
+        email: user.email,
+        last_login: new Date().toISOString(),
       });
     } else {
-      // Only log warning in development if token is missing
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(
-          "NEXT_PUBLIC_MIXPANEL_TOKEN not found in .env.local. Mixpanel tracking is disabled."
-        );
-      }
+      analytics.resetUser();
     }
-  }, []); // Run only once on mount
+  }, [user]);
 
-  return null; // This component doesn't render anything visible
+  // Track page views
+  useLayoutEffect(() => {
+    if (pathname) {
+      analytics.trackPageView({
+        pageName: pathname.split("/").pop() || "home",
+        url: pathname,
+      });
+    }
+  }, [pathname]);
+
+  return null;
 }

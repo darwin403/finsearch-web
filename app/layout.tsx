@@ -51,17 +51,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {process.env.NODE_ENV === "production" && (
-          <Script
-            src="/js/analytics.js"
-            data-website-id="e62f1ebc-636c-41a8-8db7-6a1a192cb3ba"
-            defer
-          />
-        )}
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
         <SWRConfig>
           <ThemeProvider
@@ -74,6 +66,13 @@ export default function RootLayout({
             <MixpanelInitializer />
           </ThemeProvider>
         </SWRConfig>
+        {process.env.NODE_ENV === "production" && (
+          <Script
+            src="/js/analytics.js"
+            data-website-id="e62f1ebc-636c-41a8-8db7-6a1a192cb3ba"
+            defer
+          />
+        )}
       </body>
     </html>
   );
