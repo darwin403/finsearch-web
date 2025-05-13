@@ -47,6 +47,7 @@ import {
 import { StreamingTextDisplay } from "@/components/shared/streaming-text-display";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { config } from "@/lib/config";
+import { analytics } from "@/lib/analytics";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -247,6 +248,29 @@ export default function EarningsCall() {
   // Update state and URL on tab change
   const handleTabChange = (newTabId: string) => {
     setActiveTab(newTabId);
+    
+    // Find the tab config
+    const allTabs = [...defaultTabs, ...customTabs];
+    const tab = allTabs.find(t => t.id === newTabId);
+    
+    if (tab) {
+      switch(tab.id) {
+        case 'summary':
+          analytics.trackSummaryTabView({ symbol });
+          break;
+        case 'qa':
+          analytics.trackQATabView({ symbol });
+          break;
+        case 'guidance':
+          analytics.trackGuidanceTabView({ symbol });
+          break;
+        default:
+          analytics.trackCustomTabView({ 
+            symbol,
+            tabName: tab.title 
+          });
+      }
+    }
   };
 
   // Transcript navigation
