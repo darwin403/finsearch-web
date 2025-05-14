@@ -421,9 +421,9 @@ export default function EarningsCall() {
       {/* Wrap remaining content */}
       <div className="space-y-6">
         {/* Top controls */}
-        <div className="flex flex-wrap items-center justify-between mb-6 gap-y-4 gap-x-4">
+        <div className="flex flex-col gap-y-3 mb-6 md:flex-row md:items-center md:justify-between md:gap-x-4 md:gap-y-0">
           {/* Left side controls */}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-row flex-wrap items-center gap-2 w-full md:w-auto">
             <Button
               variant="outline"
               size="icon"
@@ -437,11 +437,11 @@ export default function EarningsCall() {
             <div className="relative">
               <Button
                 variant="outline"
-                className="flex items-center gap-2 font-medium w-[150px] justify-between border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 font-medium w-[120px] md:w-[150px] justify-between border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setShowQuarterDropdown(!showQuarterDropdown)}
               >
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />
+                  <Calendar className="hidden md:inline h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />
                   <span>{selectedTranscript.fiscal_period}</span>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
@@ -488,42 +488,46 @@ export default function EarningsCall() {
               href={selectedTranscript.url}
               target="_blank"
               rel="noopener noreferrer"
+              className="flex-1 min-w-[120px] md:w-auto"
             >
               <Button
                 variant="outline"
-                className="ml-2 flex items-center gap-2 font-medium border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex w-full md:w-auto items-center gap-2 font-medium border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <FileText className="hidden md:inline h-4 w-4 text-slate-500 dark:text-slate-400" />
                 Transcript PDF
               </Button>
             </a>
           </div>
           {/* Right side controls: Remaining Generations + AI Analysis Button */}
-          <div className="flex items-center gap-3">
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
-                    Remaining Today:{" "}
-                    <span>
-                      {50 - (user?.app_metadata.transcript_parsing_count ?? 0)}
-                    </span>
-                  </p>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  <p>
-                    Number of custom AI prompts generations you can run today.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex flex-col gap-y-2 w-full md:flex-row md:items-center md:gap-3 md:w-auto">
+            <div className="flex items-center justify-between w-full md:w-auto">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-sm text-muted-foreground self-center whitespace-nowrap cursor-default">
+                      Remaining Today:{" "}
+                      <span>
+                        {50 -
+                          (user?.app_metadata.transcript_parsing_count ?? 0)}
+                      </span>
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <p>
+                      Number of custom AI prompts generations you can run today.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Dialog
               open={isCreateDialogOpen}
               onOpenChange={setIsCreateDialogOpen}
             >
               <Button
                 size="sm"
-                className="gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
+                className="w-full md:w-auto gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950"
                 onClick={handleCustomPromptClick}
               >
                 <Sparkles className="h-4 w-4" />
@@ -640,13 +644,13 @@ export default function EarningsCall() {
           >
             {/* Sticky Tabs Header */}
             <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
-              <TabsList className="h-11 bg-transparent justify-start flex flex-wrap">
+              <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar">
                 {/* Default Tabs */}
                 {defaultTabs.map((tab) => (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="h-11 px-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                    className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                   >
                     {tab.icon && (
                       <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
