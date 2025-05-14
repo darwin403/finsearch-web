@@ -18,6 +18,7 @@ import {
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
+  { id: "risk-factors", title: "Risk Factors", path: "risk-factors" },
   { id: "concall", title: "Earnings Calls", path: "concall" },
 ];
 
