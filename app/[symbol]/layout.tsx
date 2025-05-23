@@ -19,6 +19,7 @@ import {
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
   { id: "concall", title: "Earnings Calls", path: "concall" },
+  { id: "mdna", title: "MD&A", path: "mdna" },
 ];
 
 function SymbolLayoutContent({
