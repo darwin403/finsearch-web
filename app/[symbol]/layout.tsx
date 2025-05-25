@@ -1,14 +1,16 @@
 "use client";
 import React, { use, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { format } from "date-fns"; // Import date-fns for formatting
+import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { UserProfile } from "@/components/auth/user-profile";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { CompanySearch } from "@/components/shared/company-search-box";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -18,8 +20,29 @@ import {
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
+  { id: "risk-factors", title: "Risk Factors", path: "risk-factors" },
   { id: "concall", title: "Earnings Calls", path: "concall" },
 ];
+
+// Mock company data - in a real app, this would come from an API
+const getCompanyData = (symbol: string) => ({
+  name:
+    symbol === "AAPL"
+      ? "Apple Inc."
+      : symbol === "MSFT"
+      ? "Microsoft Corporation"
+      : `${symbol.toUpperCase()} Corp.`,
+  ticker: symbol.toUpperCase(),
+  sector:
+    symbol === "AAPL"
+      ? "Technology"
+      : symbol === "MSFT"
+      ? "Technology"
+      : "Technology",
+  marketCap:
+    symbol === "AAPL" ? "$3.2T" : symbol === "MSFT" ? "$2.8T" : "$1.2T",
+  logo: "/placeholder.svg",
+});
 
 function SymbolLayoutContent({
   children,
@@ -37,13 +60,15 @@ function SymbolLayoutContent({
     sections.find((section) => pathname?.endsWith(`/${section.path}`))?.id ||
     sections[0].id;
 
+  const companyData = getCompanyData(resolvedParams.symbol);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 flex items-center justify-between h-14 w-full overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           {/* Logo */}
-          <div className="flex flex-col items-start sm:flex-row sm:items-center gap-0.5 flex-shrink-0 min-w-[72px]">
+          <div className="flex items-center gap-1">
             <Link
               href="/"
               className="text-xl font-semibold text-slate-900 dark:text-slate-50"
@@ -52,58 +77,89 @@ function SymbolLayoutContent({
             </Link>
             <Badge
               variant="secondary"
-              className="px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0 mt-0.5 sm:mt-0 sm:ml-1"
+              className="px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0"
             >
               Beta v0.1
             </Badge>
           </div>
 
           {/* Search */}
-          <div className="flex-1 flex justify-center min-w-0">
+          <div className="flex-1 flex justify-center">
             <CompanySearch sections={sections} />
           </div>
 
           {/* Auth & Theme */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="hidden sm:flex items-center gap-3">
-              {loading ? (
-                <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
-              ) : user ? (
-                <UserProfile />
-              ) : (
-                <button
-                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300"
-                  onClick={() => setLoginDialogOpen(true)}
-                >
-                  Sign In
-                </button>
-              )}
-              <ThemeToggle />
-            </div>
+          <div className="flex items-center gap-3">
+            {loading ? (
+              <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            ) : user ? (
+              <UserProfile />
+            ) : (
+              <button
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300"
+                onClick={() => setLoginDialogOpen(true)}
+              >
+                Sign In
+              </button>
+            )}
+            <ThemeToggle />
           </div>
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="sticky top-14 z-40 flex h-11 items-center border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="flex space-x-8 h-full">
-            {sections.map((section) => (
-              <Link
-                key={section.id}
-                href={`/${resolvedParams.symbol}/${section.path}`}
-                className={`flex h-full items-center border-b-2 text-sm font-medium transition-colors ${
-                  activeSectionId === section.id
-                    ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500"
-                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:text-slate-200"
-                }`}
-              >
-                {section.title}
-              </Link>
-            ))}
+      {/* Company Overview Section */}
+      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex items-center gap-4">
+              <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-slate-100 dark:bg-slate-800">
+                <Image
+                  src="https://s3-symbol-logo.tradingview.com/dodla-dairy--big.svg"
+                  alt={companyData.name}
+                  fill
+                  className="object-contain p-2"
+                />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                  {companyData.name}
+                </h2>
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                  <span>{companyData.ticker}</span>
+                  <span>•</span>
+                  <span>{companyData.sector}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 ml-auto">
+              {/* Market Cap and Add to Watchlist button removed */}
+            </div>
           </div>
         </div>
-      </nav>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="sticky top-14 z-30 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Tabs value={activeSectionId} className="w-full">
+            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+              {sections.map((section) => (
+                <Link
+                  key={section.id}
+                  href={`/${resolvedParams.symbol}/${section.path}`}
+                >
+                  <TabsTrigger
+                    value={section.id}
+                    className="rounded-none py-3 px-4 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                  >
+                    {section.title}
+                  </TabsTrigger>
+                </Link>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 bg-slate-50 dark:bg-slate-950">
