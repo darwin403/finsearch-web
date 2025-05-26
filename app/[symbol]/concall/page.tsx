@@ -248,26 +248,26 @@ export default function EarningsCall() {
   // Update state and URL on tab change
   const handleTabChange = (newTabId: string) => {
     setActiveTab(newTabId);
-    
+
     // Find the tab config
     const allTabs = [...defaultTabs, ...customTabs];
-    const tab = allTabs.find(t => t.id === newTabId);
-    
+    const tab = allTabs.find((t) => t.id === newTabId);
+
     if (tab) {
-      switch(tab.id) {
-        case 'summary':
+      switch (tab.id) {
+        case "summary":
           analytics.trackSummaryTabView({ symbol });
           break;
-        case 'qa':
+        case "qa":
           analytics.trackQATabView({ symbol });
           break;
-        case 'guidance':
+        case "guidance":
           analytics.trackGuidanceTabView({ symbol });
           break;
         default:
-          analytics.trackCustomTabView({ 
+          analytics.trackCustomTabView({
             symbol,
-            tabName: tab.title 
+            tabName: tab.title,
           });
       }
     }
@@ -412,7 +412,7 @@ export default function EarningsCall() {
     <>
       {/* Consistent Title and Description like Overview */}
       <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-        {symbol}: Earnings Call Analysis
+        Earnings Call Analysis
       </h1>
       <p className="text-muted-foreground mb-4">
         Comprehensive analysis of quarterly earnings calls

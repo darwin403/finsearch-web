@@ -1,5 +1,5 @@
 "use client";
-import React, { use, useState } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -20,29 +20,23 @@ import {
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
-  { id: "risk-factors", title: "Risk Factors", path: "risk-factors" },
   { id: "concall", title: "Earnings Calls", path: "concall" },
 ];
 
-// Mock company data - in a real app, this would come from an API
-const getCompanyData = (symbol: string) => ({
-  name:
-    symbol === "AAPL"
-      ? "Apple Inc."
-      : symbol === "MSFT"
-      ? "Microsoft Corporation"
-      : `${symbol.toUpperCase()} Corp.`,
-  ticker: symbol.toUpperCase(),
-  sector:
-    symbol === "AAPL"
-      ? "Technology"
-      : symbol === "MSFT"
-      ? "Technology"
-      : "Technology",
-  marketCap:
-    symbol === "AAPL" ? "$3.2T" : symbol === "MSFT" ? "$2.8T" : "$1.2T",
-  logo: "/placeholder.svg",
-});
+interface CompanyData {
+  isin: string;
+  name: string;
+  logoid: string;
+  sector: string;
+  industry: string;
+  market_cap: number;
+  symbol_nse: string;
+  symbol_bse: string;
+  website: string;
+  close: number;
+  change: number;
+  close_last_updated: string;
+}
 
 function SymbolLayoutContent({
   children,
@@ -55,12 +49,30 @@ function SymbolLayoutContent({
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState(true);
+
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8000/company?identifier_screener=${resolvedParams.symbol}`
+        );
+        const data = await response.json();
+        setCompanyData(data);
+      } catch (error) {
+        console.error("Error fetching company data:", error);
+      } finally {
+        setLoadingCompany(false);
+      }
+    };
+
+    fetchCompanyData();
+  }, [resolvedParams.symbol]);
 
   const activeSectionId =
     sections.find((section) => pathname?.endsWith(`/${section.path}`))?.id ||
     sections[0].id;
-
-  const companyData = getCompanyData(resolvedParams.symbol);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -114,25 +126,86 @@ function SymbolLayoutContent({
             <div className="flex items-center gap-4">
               <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-slate-100 dark:bg-slate-800">
                 <Image
-                  src="https://s3-symbol-logo.tradingview.com/dodla-dairy--big.svg"
-                  alt={companyData.name}
+                  src={`https://s3-symbol-logo.tradingview.com/${companyData?.logoid}--big.svg`}
+                  alt={companyData?.symbol_nse || ""}
                   fill
                   className="object-contain p-2"
                 />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-                  {companyData.name}
-                </h2>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                    {loadingCompany ? (
+                      <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
+                    ) : (
+                      companyData?.name
+                    )}
+                  </h2>
+                  {!loadingCompany && (
+                    <div className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-200">
+                      <span>
+                        ₹
+                        {companyData?.close?.toLocaleString("en-IN", {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span
+                        className={`text-sm font-medium ${
+                          (companyData?.change ?? 0) >= 0
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                        style={{ fontWeight: 500 }}
+                      >
+                        {(companyData?.change ?? 0) >= 0 ? "+" : ""}
+                        {(companyData?.change ?? 0).toFixed(2)}%
+                      </span>
+                      <span className="text-xs font-normal text-slate-400 ml-1">
+                        {companyData?.close_last_updated
+                          ? `${format(
+                              new Date(companyData.close_last_updated),
+                              "MMM d, h:mm a"
+                            )}`
+                          : ""}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                  <span>{companyData.ticker}</span>
-                  <span>•</span>
-                  <span>{companyData.sector}</span>
+                  {loadingCompany ? (
+                    <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
+                  ) : (
+                    <>
+                      <span>
+                        {companyData?.symbol_nse || companyData?.symbol_bse}
+                      </span>
+                      <span>•</span>
+                      <span>{companyData?.sector}</span>
+                      <span>•</span>
+                      <span>{companyData?.industry}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4 ml-auto">
-              {/* Market Cap and Add to Watchlist button removed */}
+            <div className="flex items-center gap-6 ml-auto">
+              {loadingCompany ? (
+                <div className="h-12 w-32 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
+              ) : (
+                <div className="flex flex-col items-end">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    Market Cap
+                  </span>
+                  <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                    ₹
+                    {((companyData?.market_cap ?? 0) / 10000000).toLocaleString(
+                      "en-IN",
+                      { maximumFractionDigits: 2 }
+                    )}{" "}
+                    Cr
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
