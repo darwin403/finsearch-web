@@ -79,9 +79,9 @@ function SymbolLayoutContent({
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 flex items-center justify-between h-14 w-full overflow-x-hidden">
           {/* Logo */}
-          <div className="flex items-center gap-1">
+          <div className="flex flex-col items-start sm:flex-row sm:items-center gap-0.5 flex-shrink-0 min-w-[72px]">
             <Link
               href="/"
               className="text-xl font-semibold text-slate-900 dark:text-slate-50"
@@ -90,19 +90,19 @@ function SymbolLayoutContent({
             </Link>
             <Badge
               variant="secondary"
-              className="px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0"
+              className="px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0 mt-0.5 sm:mt-0 sm:ml-1"
             >
               Beta v0.1
             </Badge>
           </div>
 
           {/* Search */}
-          <div className="flex-1 flex justify-center">
+          <div className="flex-1 flex justify-center min-w-0">
             <CompanySearch sections={sections} />
           </div>
 
-          {/* Auth & Theme */}
-          <div className="flex items-center gap-3">
+          {/* Auth & Theme - Hidden on mobile */}
+          <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
             {loading ? (
               <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
             ) : user ? (
