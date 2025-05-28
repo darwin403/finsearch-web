@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +43,8 @@ export function FeedbackForm() {
       setFeedback("");
       setIsOpen(false);
       toast({
-        description: "Thank you for your feedback!",
+        description:
+          "Thank you! We've received your feedback and will try to fix it as soon as possible.",
       });
     } catch (error) {
       console.error("Error sending feedback:", error);
