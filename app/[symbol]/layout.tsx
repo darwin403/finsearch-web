@@ -131,14 +131,29 @@ async function SymbolLayoutContent({
                         {(companyData?.change ?? 0) >= 0 ? "+" : ""}
                         {(companyData?.change ?? 0).toFixed(2)}%
                       </span>
-                      <span className="text-xs font-normal text-slate-400 ml-1">
-                        {companyData?.close_last_updated
-                          ? `${format(
-                              new Date(companyData.close_last_updated),
-                              "MMM d, h:mm a"
-                            )}`
-                          : ""}
-                      </span>
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs font-normal text-slate-400 ml-1">
+                              {companyData?.close_last_updated
+                                ? `${format(
+                                    new Date(companyData.close_last_updated),
+                                    "MMM d, h:mm a"
+                                  )}`
+                                : ""}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            Price data updated:{" "}
+                            {companyData?.close_last_updated
+                              ? format(
+                                  new Date(companyData.close_last_updated),
+                                  "MMM d, yyyy 'at' h:mm a"
+                                )
+                              : "N/A"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   )}
                 </div>

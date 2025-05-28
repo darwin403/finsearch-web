@@ -35,6 +35,7 @@ import {
   Edit,
   Trash2,
   Check,
+  HelpCircle,
 } from "lucide-react";
 import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { useAuth } from "@/lib/auth-context";
@@ -411,9 +412,24 @@ export default function EarningsCall() {
   return (
     <>
       {/* Consistent Title and Description like Overview */}
-      <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-        Earnings Call Analysis
-      </h1>
+      <div className="flex items-center gap-1.5 mb-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Earnings Call Analysis
+        </h1>
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer" />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>
+                Note: New transcripts are processed and available at midnight
+                IST
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <p className="text-muted-foreground mb-4">
         Comprehensive analysis of quarterly earnings calls
       </p>
