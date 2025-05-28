@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import emailjs from "@emailjs/browser";
+import { useToast } from "@/components/ui/use-toast";
 
 export function FeedbackForm() {
   const pathname = usePathname();
@@ -22,6 +23,7 @@ export function FeedbackForm() {
   const [feedbackType, setFeedbackType] = useState<
     "positive" | "negative" | null
   >(null);
+  const { toast } = useToast();
 
   const handleSubmit = async () => {
     if (!feedback.trim()) return;
@@ -40,8 +42,15 @@ export function FeedbackForm() {
       );
       setFeedback("");
       setIsOpen(false);
+      toast({
+        description: "Thank you for your feedback!",
+      });
     } catch (error) {
       console.error("Error sending feedback:", error);
+      toast({
+        description: "Failed to send feedback. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
