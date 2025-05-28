@@ -1,16 +1,11 @@
-"use client";
-import React, { use, useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { LoginDialog } from "@/components/auth/login-dialog";
-import { UserProfile } from "@/components/auth/user-profile";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { AuthProvider } from "@/lib/auth-context";
 import { CompanySearch } from "@/components/shared/company-search-box";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +13,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { config } from "@/lib/config";
+import { AuthSection } from "./auth-section";
+import { NavigationTabs } from "./navigation-tabs";
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
@@ -39,41 +36,29 @@ interface CompanyData {
   close_last_updated: string;
 }
 
-function SymbolLayoutContent({
+async function getCompanyData(symbol: string): Promise<CompanyData | null> {
+  try {
+    const response = await fetch(
+      `${config.api_v2.baseUrl}/company?identifier_screener=${symbol}`,
+      { next: { revalidate: 60 } }
+    );
+    if (!response.ok) throw new Error("Failed to fetch");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching company data:", error);
+    return null;
+  }
+}
+
+async function SymbolLayoutContent({
   children,
   params,
 }: {
   children: React.ReactNode;
   params: Promise<{ symbol: string }>;
 }) {
-  const resolvedParams = use(params);
-  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-  const { user, loading } = useAuth();
-  const pathname = usePathname();
-  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
-  const [loadingCompany, setLoadingCompany] = useState(true);
-
-  useEffect(() => {
-    const fetchCompanyData = async () => {
-      try {
-        const response = await fetch(
-          `${config.api_v2.baseUrl}/company?identifier_screener=${resolvedParams.symbol}`
-        );
-        const data = await response.json();
-        setCompanyData(data);
-      } catch (error) {
-        console.error("Error fetching company data:", error);
-      } finally {
-        setLoadingCompany(false);
-      }
-    };
-
-    fetchCompanyData();
-  }, [resolvedParams.symbol]);
-
-  const activeSectionId =
-    sections.find((section) => pathname?.endsWith(`/${section.path}`))?.id ||
-    sections[0].id;
+  const resolvedParams = await params;
+  const companyData = await getCompanyData(resolvedParams.symbol);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -103,18 +88,7 @@ function SymbolLayoutContent({
 
           {/* Auth & Theme - Hidden on mobile */}
           <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
-            {loading ? (
-              <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
-            ) : user ? (
-              <UserProfile />
-            ) : (
-              <button
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-slate-700 dark:text-slate-300"
-                onClick={() => setLoginDialogOpen(true)}
-              >
-                Sign In
-              </button>
-            )}
+            <AuthSection />
             <ThemeToggle />
           </div>
         </div>
@@ -136,13 +110,9 @@ function SymbolLayoutContent({
               <div className="flex flex-col gap-1 min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">
-                    {loadingCompany ? (
-                      <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
-                    ) : (
-                      companyData?.name
-                    )}
+                    {companyData?.name}
                   </h2>
-                  {!loadingCompany && (
+                  {companyData && (
                     <div className="hidden md:flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-200">
                       <span>
                         ₹
@@ -173,9 +143,7 @@ function SymbolLayoutContent({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  {loadingCompany ? (
-                    <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 animate-pulse rounded" />
-                  ) : (
+                  {companyData && (
                     <>
                       <span className="truncate">
                         {companyData?.symbol_nse || companyData?.symbol_bse}
@@ -189,7 +157,7 @@ function SymbolLayoutContent({
                 </div>
               </div>
             </div>
-            {!loadingCompany && (
+            {companyData && (
               <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 md:ml-auto border-t md:border-t-0 pt-4 md:pt-0">
                 <div className="flex md:hidden w-full justify-between">
                   <div className="flex flex-col">
@@ -259,27 +227,7 @@ function SymbolLayoutContent({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="sticky top-14 z-30 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Tabs value={activeSectionId} className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-              {sections.map((section) => (
-                <Link
-                  key={section.id}
-                  href={`/${resolvedParams.symbol}/${section.path}`}
-                >
-                  <TabsTrigger
-                    value={section.id}
-                    className="rounded-none py-3 px-4 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-                  >
-                    {section.title}
-                  </TabsTrigger>
-                </Link>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
+      <NavigationTabs sections={sections} symbol={resolvedParams.symbol} />
 
       {/* Main Content */}
       <main className="flex-1 bg-slate-50 dark:bg-slate-950">
@@ -344,14 +292,11 @@ function SymbolLayoutContent({
           </div>
         </div>
       </footer>
-
-      {/* Login Dialog */}
-      <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
     </div>
   );
 }
 
-export default function SymbolLayout({
+export default async function SymbolLayout({
   children,
   params,
 }: {
