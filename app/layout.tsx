@@ -6,7 +6,6 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SWRConfig } from "swr";
 import Script from "next/script";
 import { MixpanelInitializer } from "@/components/mixpanel-initializer";
-import { FeedbackForm } from "@/components/shared/feedback-form";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,7 +64,6 @@ export default function RootLayout({
           >
             <NuqsAdapter>{children}</NuqsAdapter>
             <MixpanelInitializer />
-            <FeedbackForm />
           </ThemeProvider>
         </SWRConfig>
         {process.env.NODE_ENV === "production" && (

@@ -15,6 +15,7 @@ import {
 import { config } from "@/lib/config";
 import { AuthSection } from "./auth-section";
 import { NavigationTabs } from "./navigation-tabs";
+import { FeedbackForm } from "@/components/shared/feedback-form";
 
 const sections = [
   { id: "overview", title: "Overview", path: "overview" },
@@ -246,7 +247,10 @@ async function SymbolLayoutContent({
 
       {/* Main Content */}
       <main className="flex-1 bg-slate-50 dark:bg-slate-950">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 relative">
+          <div className="absolute right-0 sm:right-8 sm:top-8 z-50">
+            <FeedbackForm />
+          </div>
           {children}
         </div>
       </main>

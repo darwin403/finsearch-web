@@ -49,33 +49,33 @@ export function FeedbackForm() {
 
   return (
     <>
-      <div className="fixed bottom-4 right-4 flex gap-2 z-50">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <Button
           variant="outline"
           size="icon"
-          className="h-10 w-10 rounded-full bg-white dark:bg-slate-900 shadow-md hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="h-7 w-7 sm:h-8 sm:w-8 bg-white dark:bg-slate-900 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800"
           onClick={() => {
             setFeedbackType("positive");
             setIsOpen(true);
           }}
         >
-          <ThumbsUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <ThumbsUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="h-10 w-10 rounded-full bg-white dark:bg-slate-900 shadow-md hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="h-7 w-7 sm:h-8 sm:w-8 bg-white dark:bg-slate-900 shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800"
           onClick={() => {
             setFeedbackType("negative");
             setIsOpen(true);
           }}
         >
-          <ThumbsDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+          <ThumbsDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
         </Button>
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] w-[calc(100%-2rem)] mx-4">
           <DialogHeader>
             <DialogTitle>
               {feedbackType === "positive"
