@@ -72,7 +72,13 @@ async function SymbolLayoutContent({
               href="/"
               className="text-xl font-semibold text-slate-900 dark:text-slate-50"
             >
-              ArthaLens
+              <Image
+                src="/logo.svg"
+                alt="ArthaLens"
+                width={120}
+                height={32}
+                className="h-6 w-auto"
+              />
             </Link>
             <Badge
               variant="secondary"

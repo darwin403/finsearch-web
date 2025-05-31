@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import Image from "next/image";
 import { Metadata } from "next";
 import {
   Dialog,
@@ -34,8 +35,15 @@ export default function Home() {
           Beta v0.1
         </Badge>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          ArthaLens
+          <Image
+            src="/logo.svg"
+            alt="ArthaLens"
+            width={180}
+            height={48}
+            className="h-16 w-auto mx-auto mb-6"
+          />
         </h1>
+
         <p className="text-lg text-muted-foreground">
           Your AI-powered financial research companion. We&apos;re starting with
           earnings call analysis, with document chat, risk factor analysis, and
