@@ -178,7 +178,7 @@ const datasets = [
   // Add more datasets as needed
 ];
 
-function MDNAContent({ symbol }: { symbol: string }) {
+function MdaContent({ symbol }: { symbol: string }) {
   const [years, setYears] = useState<YearData[]>([]);
   const [selectedYear, setSelectedYear] = useState<YearData | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -195,7 +195,7 @@ function MDNAContent({ symbol }: { symbol: string }) {
     const fetchRiskFactors = async () => {
       try {
         const response = await fetch(
-          `${config.api.baseUrl}/mdna/?symbol=${symbol}`
+          `${config.api.baseUrl}/mda/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch risk factors data");
 
@@ -235,7 +235,7 @@ function MDNAContent({ symbol }: { symbol: string }) {
 
       try {
         const response = await fetch(
-          `${config.api.baseUrl}/mdna/?symbol=${symbol}`
+          `${config.api.baseUrl}/mda/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch risk factors data");
 
@@ -448,7 +448,7 @@ function MDNAContent({ symbol }: { symbol: string }) {
   );
 }
 
-export default function MDNAPage({ params }: { params: { symbol: string } }) {
+export default function MdaPage({ params }: { params: { symbol: string } }) {
   const { symbol } = params;
-  return <MDNAContent symbol={symbol} />;
+  return <MdaContent symbol={symbol} />;
 }
