@@ -24,13 +24,13 @@ import { config } from "@/lib/config";
 import { replaceCitationsWithLinks } from "@/lib/utils";
 
 interface RiskFactor {
-  risk_title: string;
-  risk_category: string;
+  riskTitle: string;
+  riskCategory: string;
   description: string;
-  potential_impact: string | null;
+  potentialImpact: string | null;
   severity: "High" | "Medium" | "Low";
-  mitigation_strategy: string | null;
-  change_vs_prior_year: "Increased" | "Decreased" | "Unchanged";
+  mitigationStrategy: string | null;
+  changeVsPriorYear: "Increased" | "Decreased" | "Unchanged";
 }
 
 interface YearData {
@@ -53,113 +53,202 @@ function RiskFactorsTable({
   riskFactors: RiskFactor[];
   pdfUrl: string;
 }) {
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const categoryCounts = riskFactors.reduce((acc, risk) => {
+    acc[risk.riskCategory] = (acc[risk.riskCategory] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const uniqueCategories = Object.entries(categoryCounts)
+    .sort(([, countA], [, countB]) => countB - countA)
+    .map(([category]) => category);
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const filteredRiskFactors =
+    selectedCategories.length > 0
+      ? riskFactors.filter((risk) =>
+          selectedCategories.includes(risk.riskCategory)
+        )
+      : riskFactors;
+
+  const CategoryFilter = () => (
+    <div className="mb-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Categories
+        </span>
+        {uniqueCategories.map((category) => (
+          <button
+            key={category}
+            onClick={() => toggleCategory(category)}
+            className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors
+              ${
+                selectedCategories.includes(category)
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+          >
+            <span>{category}</span>
+            <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-white/20 px-1.5 py-0.5 text-xs font-medium">
+              {categoryCounts[category]}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const toggleRow = (index: number) => {
+    setExpandedRows((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
+  const TruncatedCell = ({
+    content,
+    index,
+    pdfUrl,
+    maxLength = 200,
+  }: {
+    content: string | null;
+    index: number;
+    pdfUrl: string;
+    maxLength?: number;
+  }) => {
+    if (!content) return <span>Not specified</span>;
+
+    const isExpanded = expandedRows[index];
+    const shouldTruncate = content.length > maxLength;
+
+    return (
+      <div className="space-y-1">
+        <div
+          className={`text-slate-600 dark:text-slate-400 ${
+            shouldTruncate && !isExpanded ? "line-clamp-3" : ""
+          }`}
+        >
+          {replaceCitationsWithLinks(content, pdfUrl)}
+        </div>
+        {shouldTruncate && (
+          <button
+            onClick={() => toggleRow(index)}
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="relative w-full rounded-md border border-slate-200 dark:border-slate-800">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[15%]">
-              Risk Title
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[10%]">
-              Category
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[30%]">
-              Description
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[10%]">
-              Potential Impact
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[10%]">
-              Severity
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[15%]">
-              Mitigation Strategy
-            </TableHead>
-            <TableHead className="h-12 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[10%]">
-              Change vs Prior Year
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {riskFactors.map((risk, index) => (
-            <TableRow
-              key={index}
-              className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors"
-            >
-              <TableCell className="font-medium text-slate-900 dark:text-slate-100">
-                {risk.risk_title}
-              </TableCell>
-              <TableCell>
-                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                  {risk.risk_category}
-                </span>
-              </TableCell>
-              <TableCell className="text-slate-600 dark:text-slate-400 whitespace-normal">
-                <MarkdownDisplay
-                  markdownContent={replaceCitationsWithLinks(
-                    risk.description,
-                    pdfUrl
-                  )}
-                  className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
-                />
-              </TableCell>
-              <TableCell className="text-slate-600 dark:text-slate-400 whitespace-normal">
-                {risk.potential_impact ? (
-                  <MarkdownDisplay
-                    markdownContent={replaceCitationsWithLinks(
-                      risk.potential_impact,
-                      pdfUrl
-                    )}
-                    className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
-                  />
-                ) : (
-                  "Not specified"
-                )}
-              </TableCell>
-              <TableCell>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    risk.severity === "High"
-                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      : risk.severity === "Medium"
-                      ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  }`}
-                >
-                  {risk.severity}
-                </span>
-              </TableCell>
-              <TableCell className="text-slate-600 dark:text-slate-400 whitespace-normal">
-                {risk.mitigation_strategy ? (
-                  <MarkdownDisplay
-                    markdownContent={replaceCitationsWithLinks(
-                      risk.mitigation_strategy,
-                      pdfUrl
-                    )}
-                    className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
-                  />
-                ) : (
-                  "Not specified"
-                )}
-              </TableCell>
-              <TableCell>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    risk.change_vs_prior_year === "Increased"
-                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      : risk.change_vs_prior_year === "Decreased"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                  }`}
-                >
-                  {risk.change_vs_prior_year}
-                </span>
-              </TableCell>
+    <div>
+      <CategoryFilter />
+      <div className="rounded-md border">
+        <Table>
+          <colgroup>
+            <col className="w-[25%]" />
+            <col className="w-[30%]" />
+            <col className="w-[30%]" />
+            <col className="w-[15%]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Risk Title</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Potential Impact</TableHead>
+              <TableHead>Mitigation Strategy</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filteredRiskFactors.map((risk, index) => (
+              <TableRow key={index}>
+                <TableCell>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Category
+                      </span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {risk.riskCategory}
+                      </span>
+                    </div>
+                    <div>{risk.riskTitle}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell
+                    content={risk.description}
+                    index={index}
+                    pdfUrl={pdfUrl}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2 items-center text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Severity
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            risk.severity === "High"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                              : risk.severity === "Medium"
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          }`}
+                        >
+                          {risk.severity}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Change
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            risk.changeVsPriorYear === "Increased"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                              : risk.changeVsPriorYear === "Decreased"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+                          }`}
+                        >
+                          {risk.changeVsPriorYear}
+                        </span>
+                      </div>
+                    </div>
+                    <TruncatedCell
+                      content={risk.potentialImpact}
+                      index={index}
+                      pdfUrl={pdfUrl}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell
+                    content={risk.mitigationStrategy}
+                    index={index}
+                    pdfUrl={pdfUrl}
+                    maxLength={95}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -195,7 +284,7 @@ function MdaContent({ symbol }: { symbol: string }) {
     const fetchRiskFactors = async () => {
       try {
         const response = await fetch(
-          `${config.api.baseUrl}/mda/?symbol=${symbol}`
+          `${config.api_v2.baseUrl}/mda/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch risk factors data");
 
@@ -235,7 +324,7 @@ function MdaContent({ symbol }: { symbol: string }) {
 
       try {
         const response = await fetch(
-          `${config.api.baseUrl}/mda/?symbol=${symbol}`
+          `${config.api_v2.baseUrl}/mda/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch risk factors data");
 
