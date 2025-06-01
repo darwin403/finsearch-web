@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -19,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MarkdownDisplay } from "@/components/shared/markdown-display";
 import { config } from "@/lib/config";
 import { replaceCitationsWithLinks } from "@/lib/utils";
 
@@ -38,13 +36,6 @@ interface YearData {
   label: string;
   url: string;
 }
-
-const industryOutlookMarkdown = `
-| Year | Outlook         | Notes                        |
-|------|----------------|------------------------------|
-| 2024 | Positive       | Growth in core segments      |
-| 2023 | Neutral        | Stable demand, rising costs  |
-`;
 
 function RiskFactorsTable({
   riskFactors,
@@ -253,31 +244,12 @@ function RiskFactorsTable({
   );
 }
 
-const datasets = [
-  {
-    id: "risk-factors",
-    label: "Risk Factors Analysis",
-    content: <RiskFactorsTable riskFactors={[]} pdfUrl="" />,
-  },
-  {
-    id: "industry-outlook",
-    label: "Industry Outlook",
-    markdown: industryOutlookMarkdown,
-  },
-  // Add more datasets as needed
-];
-
 function MdaContent({ symbol }: { symbol: string }) {
   const [years, setYears] = useState<YearData[]>([]);
   const [selectedYear, setSelectedYear] = useState<YearData | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState(datasets[0].id);
   const [riskFactors, setRiskFactors] = useState<RiskFactor[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Refs for each section for scroll navigation
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch risk factors data
   useEffect(() => {
@@ -338,16 +310,6 @@ function MdaContent({ symbol }: { symbol: string }) {
     fetchRiskFactorsForYear();
   }, [selectedYear, symbol]);
 
-  // Update datasets with current risk factors
-  useEffect(() => {
-    datasets[0].content = (
-      <RiskFactorsTable
-        riskFactors={riskFactors}
-        pdfUrl={selectedYear?.url || ""}
-      />
-    );
-  }, [riskFactors, selectedYear?.url]);
-
   const handlePrev = () => {
     const idx = years.findIndex((y) => y.id === selectedYear?.id);
     if (idx > 0) setSelectedYear(years[idx - 1]); // Move to newer year
@@ -357,35 +319,6 @@ function MdaContent({ symbol }: { symbol: string }) {
     const idx = years.findIndex((y) => y.id === selectedYear?.id);
     if (idx < years.length - 1) setSelectedYear(years[idx + 1]); // Move to older year
   };
-
-  // Scroll to section on tab click
-  const handleTabClick = (id: string) => {
-    const ref = sectionRefs.current[id];
-    if (ref) {
-      ref.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    setActiveTab(id);
-  };
-
-  // Update active tab on scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      const offsets = datasets.map((ds) => {
-        const ref = sectionRefs.current[ds.id];
-        if (!ref) return { id: ds.id, top: Infinity };
-        const rect = ref.getBoundingClientRect();
-        return { id: ds.id, top: Math.abs(rect.top - 120) }; // 120px offset for sticky tabs
-      });
-      const min = offsets.reduce(
-        (prev, curr) => (curr.top < prev.top ? curr : prev),
-        offsets[0]
-      );
-      if (min && min.id !== activeTab) setActiveTab(min.id);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [activeTab]);
 
   if (loading) {
     return (
@@ -491,53 +424,24 @@ function MdaContent({ symbol }: { symbol: string }) {
           )}
         </div>
       </div>
-      <Tabs
-        value={activeTab}
-        className="w-full mb-6"
-        onValueChange={handleTabClick}
-      >
-        <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center px-4">
-          <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar">
-            {datasets.map((ds) => (
-              <TabsTrigger
-                key={ds.id}
-                value={ds.id}
-                className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                onClick={() => handleTabClick(ds.id)}
-                tabIndex={0}
-                type="button"
-              >
-                {ds.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <Card className="border border-slate-200 dark:border-slate-800 rounded-none shadow-sm bg-white dark:bg-slate-950">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold mb-4">Risk Factors Analysis</h2>
+          <RiskFactorsTable
+            riskFactors={riskFactors}
+            pdfUrl={selectedYear?.url || ""}
+          />
         </div>
-      </Tabs>
-      <div className="space-y-6" ref={containerRef}>
-        {datasets.map((ds) => (
-          <Card
-            key={ds.id}
-            className="border border-slate-200 dark:border-slate-800 rounded-none shadow-sm bg-white dark:bg-slate-950"
-            id={ds.id}
-            ref={(el) => {
-              sectionRefs.current[ds.id] = el;
-            }}
-          >
-            <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4">{ds.label}</h2>
-              {ds.content ||
-                (ds.markdown && (
-                  <MarkdownDisplay markdownContent={ds.markdown} />
-                ))}
-            </div>
-          </Card>
-        ))}
-      </div>
+      </Card>
     </>
   );
 }
 
-export default function MdaPage({ params }: { params: { symbol: string } }) {
-  const { symbol } = params;
+export default function MdaPage({
+  params,
+}: {
+  params: Promise<{ symbol: string }>;
+}) {
+  const { symbol } = use(params);
   return <MdaContent symbol={symbol} />;
 }
