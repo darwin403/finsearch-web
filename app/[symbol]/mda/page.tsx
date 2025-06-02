@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { config } from "@/lib/config";
-import { replaceCitationsWithLinks } from "@/lib/utils";
+import { replaceCitationsWithLinks, TextWithCitations } from "@/lib/utils";
 
 interface RiskFactor {
   riskTitle: string;
@@ -34,15 +34,23 @@ interface RiskFactor {
 interface YearData {
   id: string;
   label: string;
-  url: string;
+  pdf_url: string;
+}
+
+interface LayoutInfo {
+  pages_per_pdf_page: number;
+  document_page_number: number;
+  pdf_page_number: number;
 }
 
 function RiskFactorsTable({
   riskFactors,
   pdfUrl,
+  layoutInfo,
 }: {
   riskFactors: RiskFactor[];
   pdfUrl: string;
+  layoutInfo?: LayoutInfo;
 }) {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -110,11 +118,13 @@ function RiskFactorsTable({
     index,
     pdfUrl,
     maxLength = 200,
+    layoutInfo,
   }: {
     content: string | null;
     index: number;
     pdfUrl: string;
     maxLength?: number;
+    layoutInfo?: LayoutInfo;
   }) => {
     if (!content) return <span>Not specified</span>;
 
@@ -128,7 +138,11 @@ function RiskFactorsTable({
             shouldTruncate && !isExpanded ? "line-clamp-3" : ""
           }`}
         >
-          {replaceCitationsWithLinks(content, pdfUrl)}
+          <TextWithCitations
+            text={content}
+            basePdfUrl={pdfUrl}
+            layoutInfo={layoutInfo}
+          />
         </div>
         {shouldTruncate && (
           <button
@@ -145,7 +159,7 @@ function RiskFactorsTable({
   return (
     <div>
       <CategoryFilter />
-      <div className="rounded-md border">
+      <div className="rounded-md">
         <Table>
           <colgroup>
             <col className="w-[25%]" />
@@ -182,6 +196,7 @@ function RiskFactorsTable({
                     content={risk.description}
                     index={index}
                     pdfUrl={pdfUrl}
+                    layoutInfo={layoutInfo}
                   />
                 </TableCell>
                 <TableCell>
@@ -224,6 +239,7 @@ function RiskFactorsTable({
                       content={risk.potentialImpact}
                       index={index}
                       pdfUrl={pdfUrl}
+                      layoutInfo={layoutInfo}
                     />
                   </div>
                 </TableCell>
@@ -232,6 +248,7 @@ function RiskFactorsTable({
                     content={risk.mitigationStrategy}
                     index={index}
                     pdfUrl={pdfUrl}
+                    layoutInfo={layoutInfo}
                     maxLength={95}
                   />
                 </TableCell>
@@ -249,6 +266,7 @@ function MdaContent({ symbol }: { symbol: string }) {
   const [selectedYear, setSelectedYear] = useState<YearData | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [riskFactors, setRiskFactors] = useState<RiskFactor[]>([]);
+  const [layoutInfo, setLayoutInfo] = useState<LayoutInfo | undefined>();
   const [loading, setLoading] = useState(true);
 
   // Fetch risk factors data
@@ -269,7 +287,7 @@ function MdaContent({ symbol }: { symbol: string }) {
         const yearsData = availableYears.map((year) => ({
           id: year,
           label: `FY ${year}`,
-          url: data[year].url || "",
+          pdf_url: data[year].pdf_url || "",
         }));
 
         setYears(yearsData);
@@ -277,6 +295,7 @@ function MdaContent({ symbol }: { symbol: string }) {
         if (yearsData.length > 0) {
           setSelectedYear(yearsData[0]); // Latest year is already first due to sort
           setRiskFactors(data[yearsData[0].id].risk_factors || []);
+          setLayoutInfo(data[yearsData[0].id].layout_info);
         }
 
         setLoading(false);
@@ -302,6 +321,7 @@ function MdaContent({ symbol }: { symbol: string }) {
 
         const data = await response.json();
         setRiskFactors(data[selectedYear.id].risk_factors || []);
+        setLayoutInfo(data[selectedYear.id].layout_info);
       } catch (error) {
         console.error("Error fetching risk factors for year:", error);
       }
@@ -406,9 +426,9 @@ function MdaContent({ symbol }: { symbol: string }) {
             <ChevronRight className="h-4 w-4" />
           </Button>
 
-          {selectedYear?.url && (
+          {selectedYear?.pdf_url && (
             <a
-              href={selectedYear.url}
+              href={selectedYear.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 min-w-[120px] md:w-auto"
@@ -429,7 +449,8 @@ function MdaContent({ symbol }: { symbol: string }) {
           <h2 className="text-lg font-semibold mb-4">Risk Factors Analysis</h2>
           <RiskFactorsTable
             riskFactors={riskFactors}
-            pdfUrl={selectedYear?.url || ""}
+            pdfUrl={selectedYear?.pdf_url || ""}
+            layoutInfo={layoutInfo}
           />
         </div>
       </Card>
