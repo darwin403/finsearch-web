@@ -18,9 +18,9 @@ import { NavigationTabs } from "./navigation-tabs";
 import { FeedbackForm } from "@/components/shared/feedback-form";
 
 const sections = [
-  { id: "overview", title: "Overview", path: "overview" },
+  { id: "overview", title: "Overview", path: "overview", new: true },
   { id: "concall", title: "Earnings Calls", path: "concall" },
-  { id: "mda", title: "MD&A", path: "mda" },
+  { id: "mda", title: "MD&A", path: "mda", new: true },
 ];
 
 interface CompanyData {

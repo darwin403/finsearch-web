@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface NavigationTabsProps {
-  sections: Array<{ id: string; title: string; path: string }>;
+  sections: Array<{ id: string; title: string; path: string; new?: boolean }>;
   symbol: string;
 }
 
@@ -27,7 +27,14 @@ export function NavigationTabs({ sections, symbol }: NavigationTabsProps) {
                   value={section.id}
                   className="rounded-none py-3 px-4 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
                 >
-                  {section.title}
+                  <span className="flex items-center gap-2">
+                    {section.title}
+                    {section.new && (
+                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                        new
+                      </span>
+                    )}
+                  </span>
                 </TabsTrigger>
               </Link>
             ))}
