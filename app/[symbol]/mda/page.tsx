@@ -62,14 +62,30 @@ function RiskFactorsTable({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isAllExpanded, setIsAllExpanded] = useState(false);
 
+  if (!riskFactors.length) {
+    return (
+      <div className="text-slate-500 dark:text-slate-400">
+        No Risk Factors were identified from the MD&A section.
+      </div>
+    );
+  }
+
   const categoryCounts = riskFactors.reduce((acc, risk) => {
     acc[risk.riskCategory] = (acc[risk.riskCategory] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const uniqueCategories = Object.entries(categoryCounts)
-    .sort(([, countA], [, countB]) => countB - countA)
-    .map(([category]) => category);
+  const categoryOrder = [
+    "Market",
+    "Regulatory",
+    "Operational",
+    "Financial",
+    "ESG",
+    "Economic",
+  ];
+  const uniqueCategories = categoryOrder.filter(
+    (category) => categoryCounts[category] > 0
+  );
 
   const toggleCategory = (category: string) => {
     setSelectedCategory((prev) => (prev === category ? "" : category));
