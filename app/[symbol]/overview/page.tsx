@@ -2,6 +2,7 @@
 
 import { InfoIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { config } from "@/lib/config";
@@ -18,12 +19,6 @@ import {
   Eye,
   Users,
 } from "lucide-react";
-
-interface PageProps {
-  params: {
-    symbol: string;
-  };
-}
 
 interface YearData {
   pdf_url: string;
@@ -153,8 +148,9 @@ function parseMarkdownSections(markdown: string): Section[] {
   return sections;
 }
 
-export default function OverviewPage({ params }: PageProps) {
-  const { symbol } = params;
+export default function OverviewPage() {
+  const params = useParams();
+  const symbol = (params.symbol as string) || "UNKNOWN";
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -242,68 +238,74 @@ export default function OverviewPage({ params }: PageProps) {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-          {symbol}: Company Overview
+    <>
+      <div className="flex items-center gap-1.5 mb-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Company Overview
         </h1>
-        <p className="text-muted-foreground">
-          Comprehensive overview of {symbol}&apos;s business, financials, and
-          key metrics.
-        </p>
       </div>
+      <p className="text-muted-foreground mb-4">
+        Comprehensive overview of {symbol}&apos;s business, financials, and key
+        metrics.
+      </p>
 
-      <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Sticky Tabs Header */}
-          <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
-            <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar">
-              {sections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <TabsTrigger
-                    key={section.id}
-                    value={section.id}
-                    className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                  >
-                    <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
-                      <Icon />
-                    </span>
-                    <span className="hidden sm:inline">
-                      {section.shortTitle}
-                    </span>
-                    <span className="sm:hidden">
-                      {section.shortTitle.slice(0, 3)}
-                    </span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </div>
+      <div className="space-y-6">
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm bg-white dark:bg-slate-950 min-h-[600px]">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            {/* Sticky Tabs Header */}
+            <div className="sticky top-[100px] z-10 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center px-4">
+              <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar">
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <TabsTrigger
+                      key={section.id}
+                      value={section.id}
+                      className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                    >
+                      <span className="mr-2 [&>svg]:h-4 [&>svg]:w-4">
+                        <Icon />
+                      </span>
+                      <span className="hidden sm:inline">
+                        {section.shortTitle}
+                      </span>
+                      <span className="sm:hidden">
+                        {section.shortTitle.slice(0, 3)}
+                      </span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
 
-          {/* Tab Content Area */}
-          {sections.map((section) => (
-            <TabsContent
-              key={section.id}
-              value={section.id}
-              className="m-0 mt-0"
-            >
-              <div className="p-6">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                    {section.title}
-                  </h2>
+            {/* Tab Content Area */}
+            {sections.map((section) => (
+              <TabsContent
+                key={section.id}
+                value={section.id}
+                className="m-0 mt-0"
+              >
+                <div className="p-6">
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                      {section.title}
+                    </h2>
+                  </div>
+                  <MarkdownDisplay
+                    markdownContent={section.content}
+                    showToc={false}
+                    className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
+                  />
                 </div>
-                <MarkdownDisplay
-                  markdownContent={section.content}
-                  showToc={false}
-                  className="prose dark:prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
-                />
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </Card>
-    </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </Card>
+      </div>
+    </>
   );
 }

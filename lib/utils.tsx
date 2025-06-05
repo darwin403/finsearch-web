@@ -97,7 +97,7 @@ interface LayoutInfo {
   pdf_page_number: number;
 }
 
-function convertToPdfPage(
+export function convertToPdfPage(
   documentPageNumber: number,
   layoutInfo: LayoutInfo
 ): number {

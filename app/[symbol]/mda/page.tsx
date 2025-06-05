@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { config } from "@/lib/config";
-import { replaceCitationsWithLinks, TextWithCitations } from "@/lib/utils";
+import { TextWithCitations, convertToPdfPage } from "@/lib/utils";
 
 interface RiskFactor {
   riskTitle: string;
@@ -35,6 +35,12 @@ interface YearData {
   id: string;
   label: string;
   pdf_url: string;
+  mda_section?: {
+    found: boolean;
+    start_page: number;
+    end_page: number;
+    section_name: string;
+  };
 }
 
 interface LayoutInfo {
@@ -53,7 +59,8 @@ function RiskFactorsTable({
   layoutInfo?: LayoutInfo;
 }) {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [isAllExpanded, setIsAllExpanded] = useState(false);
 
   const categoryCounts = riskFactors.reduce((acc, risk) => {
     acc[risk.riskCategory] = (acc[risk.riskCategory] || 0) + 1;
@@ -65,19 +72,22 @@ function RiskFactorsTable({
     .map(([category]) => category);
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
-    );
+    setSelectedCategory((prev) => (prev === category ? "" : category));
   };
 
-  const filteredRiskFactors =
-    selectedCategories.length > 0
-      ? riskFactors.filter((risk) =>
-          selectedCategories.includes(risk.riskCategory)
-        )
-      : riskFactors;
+  const filteredRiskFactors = selectedCategory
+    ? riskFactors.filter((risk) => risk.riskCategory === selectedCategory)
+    : riskFactors;
+
+  const toggleAll = () => {
+    const newState = !isAllExpanded;
+    const allExpanded = filteredRiskFactors.reduce((acc, _, index) => {
+      acc[index] = newState;
+      return acc;
+    }, {} as Record<number, boolean>);
+    setExpandedRows(allExpanded);
+    setIsAllExpanded(newState);
+  };
 
   const CategoryFilter = () => (
     <div className="mb-6">
@@ -91,7 +101,7 @@ function RiskFactorsTable({
             onClick={() => toggleCategory(category)}
             className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors
               ${
-                selectedCategories.includes(category)
+                selectedCategory === category
                   ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               }`}
@@ -102,6 +112,12 @@ function RiskFactorsTable({
             </span>
           </button>
         ))}
+        <button
+          onClick={toggleAll}
+          className="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {isAllExpanded ? "Collapse All" : "Expand All"}
+        </button>
       </div>
     </div>
   );
@@ -288,6 +304,7 @@ function MdaContent({ symbol }: { symbol: string }) {
           id: year,
           label: `FY ${year}`,
           pdf_url: data[year].pdf_url || "",
+          mda_section: data[year].mda_section,
         }));
 
         setYears(yearsData);
@@ -359,7 +376,7 @@ function MdaContent({ symbol }: { symbol: string }) {
   return (
     <>
       <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">
-        {symbol}: Management Discussion & Analysis
+        Management Discussion & Analysis
       </h1>
       <p className="text-muted-foreground mb-4">
         Management Discussion and Analysis (MD&A) from annual reports.
@@ -428,7 +445,14 @@ function MdaContent({ symbol }: { symbol: string }) {
 
           {selectedYear?.pdf_url && (
             <a
-              href={selectedYear.pdf_url}
+              href={`${selectedYear.pdf_url}${
+                selectedYear.mda_section?.found && layoutInfo
+                  ? `#page=${convertToPdfPage(
+                      selectedYear.mda_section.start_page,
+                      layoutInfo
+                    )}`
+                  : ""
+              }`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 min-w-[120px] md:w-auto"
@@ -438,7 +462,7 @@ function MdaContent({ symbol }: { symbol: string }) {
                 className="flex w-full md:w-auto items-center gap-2 font-medium border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <FileText className="hidden md:inline h-4 w-4 text-slate-500 dark:text-slate-400" />
-                Annual Report PDF
+                View MD&A in Annual Report
               </Button>
             </a>
           )}
