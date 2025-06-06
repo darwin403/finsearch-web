@@ -43,7 +43,7 @@ async function getCompanyData(symbol: string): Promise<CompanyData | null> {
   try {
     const response = await fetch(
       `${config.api_v2.baseUrl}/company?identifier_screener=${symbol}`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     if (!response.ok) throw new Error("Failed to fetch");
     return await response.json();
