@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider } from "@/lib/auth-context";
 import { CompanySearch } from "@/components/shared/company-search-box";
@@ -144,19 +145,21 @@ async function SymbolLayoutContent({
                           <TooltipTrigger asChild>
                             <span className="text-xs font-normal text-slate-400 ml-1">
                               {companyData?.close_last_updated
-                                ? `${format(
+                                ? `${formatInTimeZone(
                                     new Date(companyData.close_last_updated),
+                                    "Asia/Kolkata",
                                     "MMM d, h:mm a"
-                                  )}`
+                                  )} IST`
                                 : ""}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
                             Price data updated:{" "}
                             {companyData?.close_last_updated
-                              ? format(
+                              ? formatInTimeZone(
                                   new Date(companyData.close_last_updated),
-                                  "MMM d, yyyy 'at' h:mm a"
+                                  "Asia/Kolkata",
+                                  "MMM d, yyyy 'at' h:mm a 'IST'"
                                 )
                               : "N/A"}
                           </TooltipContent>
@@ -208,10 +211,11 @@ async function SymbolLayoutContent({
                     </div>
                     <span className="text-xs font-normal text-slate-400">
                       {companyData?.close_last_updated
-                        ? `${format(
+                        ? `${formatInTimeZone(
                             new Date(companyData.close_last_updated),
+                            "Asia/Kolkata",
                             "MMM d, h:mm a"
-                          )}`
+                          )} IST`
                         : ""}
                     </span>
                   </div>
