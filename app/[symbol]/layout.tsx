@@ -20,8 +20,9 @@ import { FeedbackForm } from "@/components/shared/feedback-form";
 
 const sections = [
   // { id: "overview", title: "Overview", path: "overview", new: true },
+  { id: "hierarchy", title: "Company Hierarchy", path: "hierarchy", new: true },
   { id: "concall", title: "Earnings Calls", path: "concall" },
-  { id: "mda", title: "MD&A", path: "mda", new: true },
+  { id: "mda", title: "Risk Factors", path: "mda" },
 ];
 
 interface CompanyData {
