@@ -3,7 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Download } from "lucide-react";
+import { RotateCcw, Download, FileJson } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface HierarchyNode {
   name: string;
@@ -18,12 +25,14 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const initialTransformRef = useRef<d3.ZoomTransform | null>(null);
 
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const { width } = containerRef.current.getBoundingClientRect();
-        // Use the full width of the container
         setDimensions({ width: Math.max(width, 600), height: 600 });
       }
     };
@@ -44,62 +53,61 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Create the main group first
     const g = svg.append("g");
 
-    // Create zoom behavior with reference to the group
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 3])
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
+
+        // Check if transform differs from initial
+        if (initialTransformRef.current) {
+          const isTransformed =
+            event.transform.k !== initialTransformRef.current.k ||
+            event.transform.x !== initialTransformRef.current.x ||
+            event.transform.y !== initialTransformRef.current.y;
+          setIsZoomed(isTransformed);
+        }
       });
 
     svg.call(zoom);
 
-    // Create hierarchy and calculate tree layout
     const root = d3.hierarchy(data);
-    // For horizontal layout, we swap the size dimensions
     const treeLayout = d3.tree<HierarchyNode>().size([innerHeight, innerWidth]);
     const treeData = treeLayout(root);
 
-    // Calculate the bounds of the tree
     let minX = Infinity,
       maxX = -Infinity,
       minY = Infinity,
       maxY = -Infinity;
     treeData.descendants().forEach((d) => {
-      // For horizontal layout, swap x and y
       minX = Math.min(minX, d.y);
       maxX = Math.max(maxX, d.y);
       minY = Math.min(minY, d.x);
       maxY = Math.max(maxY, d.x);
     });
 
-    // Calculate scale to fit content
     const treeWidth = maxX - minX;
     const treeHeight = maxY - minY;
     const scale = Math.min(
-      innerWidth / (treeWidth + 100), // Add padding
+      innerWidth / (treeWidth + 100),
       innerHeight / (treeHeight + 100),
-      1 // Don't scale up, only down if needed
+      1
     );
 
-    // Center the tree
     const centerX = (innerWidth - treeWidth * scale) / 2 - minX * scale;
     const centerY = (innerHeight - treeHeight * scale) / 2 - minY * scale;
 
-    // Set initial transform to fit content
     const initialTransform = d3.zoomIdentity
       .translate(margin.left + centerX, margin.top + centerY)
       .scale(scale);
 
+    initialTransformRef.current = initialTransform;
     svg.call(zoom.transform, initialTransform);
 
-    // Create a group for the tree
     const treeGroup = g.append("g");
 
-    // Add links (horizontal layout)
     const links = treeGroup
       .selectAll(".link")
       .data(treeData.links())
@@ -111,7 +119,6 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
       .attr("stroke-width", 2)
       .attr("stroke-opacity", 0.6)
       .attr("d", (d) => {
-        // Create horizontal links with curved corners
         const source = d.source;
         const target = d.target;
         const midX = (source.y + target.y) / 2;
@@ -121,7 +128,6 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
                   ${target.y} ${target.x}`;
       });
 
-    // Add nodes
     const nodes = treeGroup
       .selectAll(".node")
       .data(treeData.descendants())
@@ -130,15 +136,14 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
       .attr("class", "node")
       .attr("transform", (d) => `translate(${d.y},${d.x})`);
 
-    // Add circles for nodes
     nodes
       .append("circle")
       .attr("r", (d) => (d.children ? 8 : 6))
       .attr("fill", (d) => {
-        if (d.depth === 0) return "#1e40af"; // Blue for root
-        if (d.depth === 1) return "#059669"; // Green for level 1
-        if (d.depth === 2) return "#dc2626"; // Red for level 2
-        return "#7c3aed"; // Purple for leaves
+        if (d.depth === 0) return "#1e40af";
+        if (d.depth === 1) return "#059669";
+        if (d.depth === 2) return "#dc2626";
+        return "#7c3aed";
       })
       .attr("stroke", "#fff")
       .attr("stroke-width", 2)
@@ -156,7 +161,6 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
           .attr("r", d.children ? 8 : 6);
       });
 
-    // Add text labels with background boxes
     nodes
       .append("text")
       .attr("dy", "0.31em")
@@ -185,12 +189,10 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
         }
       })
       .each(function (d) {
-        // Add background rectangle for each text element
         const textElement = this;
         const bbox = textElement.getBBox();
         const padding = 4;
 
-        // Insert rectangle before the text element
         d3.select(textElement.parentNode)
           .insert("rect", () => textElement)
           .attr("x", bbox.x - padding)
@@ -204,7 +206,6 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
           .attr("ry", 3);
       });
 
-    // Add legend
     const legend = svg.append("g").attr("transform", `translate(20, 20)`);
 
     const legendData = [
@@ -238,71 +239,65 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
       .attr("fill", "currentColor")
       .text((d) => d.label);
 
-    // Store zoom behavior for external controls
     (svg.node() as any).__zoom__ = zoom;
   }, [data, dimensions]);
 
   const handleReset = () => {
     const svg = d3.select(svgRef.current);
-    const { width, height } = dimensions;
-    const margin = { top: 40, right: 120, bottom: 40, left: 120 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    // Recalculate the tree layout for reset
-    const root = d3.hierarchy(data);
-    const treeLayout = d3.tree<HierarchyNode>().size([innerHeight, innerWidth]);
-    const treeData = treeLayout(root);
-
-    // Calculate bounds
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    treeData.descendants().forEach((d) => {
-      minX = Math.min(minX, d.y);
-      maxX = Math.max(maxX, d.y);
-      minY = Math.min(minY, d.x);
-      maxY = Math.max(maxY, d.x);
-    });
-
-    const treeWidth = maxX - minX;
-    const treeHeight = maxY - minY;
-    const scale = Math.min(
-      innerWidth / (treeWidth + 100),
-      innerHeight / (treeHeight + 100),
-      1
-    );
-
-    const centerX = (innerWidth - treeWidth * scale) / 2 - minX * scale;
-    const centerY = (innerHeight - treeHeight * scale) / 2 - minY * scale;
-
-    const resetTransform = d3.zoomIdentity
-      .translate(margin.left + centerX, margin.top + centerY)
-      .scale(scale);
-
-    svg
-      .transition()
-      .call((svg.node() as any).__zoom__.transform, resetTransform);
+    if (initialTransformRef.current && (svg.node() as any).__zoom__) {
+      svg
+        .transition()
+        .duration(750)
+        .call(
+          (svg.node() as any).__zoom__.transform,
+          initialTransformRef.current
+        );
+    }
+    setIsZoomed(false);
   };
 
   const handleDownload = () => {
     if (!svgRef.current) return;
 
     const svgElement = svgRef.current;
-    const svgData = new XMLSerializer().serializeToString(svgElement);
-    const svgBlob = new Blob([svgData], {
-      type: "image/svg+xml;charset=utf-8",
-    });
-    const svgUrl = URL.createObjectURL(svgBlob);
+    const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement;
 
-    const downloadLink = document.createElement("a");
-    downloadLink.href = svgUrl;
-    downloadLink.download = "hierarchy-tree.svg";
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(svgUrl);
+    // Remove any transform to get the full hierarchy
+    const clonedG = clonedSvg.querySelector("g");
+    if (clonedG) {
+      clonedG.removeAttribute("transform");
+    }
+
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    canvas.width = dimensions.width * 2;
+    canvas.height = dimensions.height * 2;
+
+    img.onload = () => {
+      ctx!.fillStyle = "white";
+      ctx!.fillRect(0, 0, canvas.width, canvas.height);
+      ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const downloadLink = document.createElement("a");
+          downloadLink.href = url;
+          downloadLink.download = "hierarchy-tree.png";
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(url);
+        }
+      }, "image/png");
+    };
+
+    img.src =
+      "data:image/svg+xml;base64," +
+      btoa(unescape(encodeURIComponent(svgData)));
   };
 
   return (
@@ -311,11 +306,11 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleReset}
+          onClick={() => setShowExportDialog(true)}
           className="flex items-center gap-1 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900"
         >
-          <RotateCcw className="h-4 w-4" />
-          Reset
+          <FileJson className="h-4 w-4" />
+          Export Data
         </Button>
         <Button
           variant="outline"
@@ -324,11 +319,11 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
           className="flex items-center gap-1 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900"
         >
           <Download className="h-4 w-4" />
-          Download SVG
+          Download Image
         </Button>
       </div>
 
-      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900">
+      <div className="relative border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900">
         <svg
           ref={svgRef}
           width={dimensions.width}
@@ -336,14 +331,54 @@ export function HierarchyTree({ data }: HierarchyTreeProps) {
           className="bg-white dark:bg-slate-950 block"
           style={{ width: "100%", height: dimensions.height }}
         />
+
+        {isZoomed && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="absolute top-4 right-4 flex items-center gap-1 border-slate-200/80 bg-white/90 backdrop-blur-sm hover:bg-white text-slate-700 hover:text-slate-900 shadow-sm transition-opacity duration-200"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 text-sm text-muted-foreground">
-        <p>
-          • Click and drag to pan • Use mouse wheel to zoom • Hover over nodes
-          for details
-        </p>
+        <p>• Click and drag to pan • Use mouse wheel to zoom for details</p>
       </div>
+
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Export Data</DialogTitle>
+            <DialogDescription>
+              This is the raw JSON data structure used to generate the hierarchy
+              visualization. You can copy this data to recreate the diagram or
+              use it in other applications.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative mt-4">
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-4 overflow-hidden">
+              <pre className="overflow-auto max-h-[400px] text-sm whitespace-pre-wrap break-words">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

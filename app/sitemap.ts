@@ -8,7 +8,7 @@ const pool = new Pool({
 });
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [concallRows, mdaRows] = await Promise.all([
+  const [concallRows, mdaRows, hierarchyRows] = await Promise.all([
     pool.query<{ symbol: string; date: Date }>(
       'SELECT DISTINCT symbol, MAX(date) as date FROM public."screener.concall" WHERE parsed = true GROUP BY symbol'
     ),
@@ -20,11 +20,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
          AND risk_factors IS NOT NULL
          AND json_array_length(risk_factors) > 0`
     ),
+    pool.query<{ symbol: string }>(
+      `SELECT DISTINCT symbol
+       FROM public."screener.annual_report"
+       WHERE hierarchy_parsed = true
+         AND hierarchy IS NOT NULL` 
+    ),
   ]);
 
-  const concallUrls = concallRows.rows.map(({ symbol, date }) => ({
+  const concallUrls = concallRows.rows.map(({ symbol }) => ({
     url: `${config.frontend.baseUrl}/${encodeURIComponent(symbol)}/concall`,
-    // lastModified: date,
     changeFrequency: "daily" as const,
     priority: 0.8,
   }));
@@ -35,5 +40,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...concallUrls, ...mdaUrls];
+  const hierarchyUrls = hierarchyRows.rows.map(({ symbol }) => ({
+    url: `${config.frontend.baseUrl}/${encodeURIComponent(symbol)}/hierarchy`,
+    changeFrequency: "daily" as const,
+    priority: 0.8,
+  }));
+
+  return [...concallUrls, ...mdaUrls, ...hierarchyUrls];
 }
