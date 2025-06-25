@@ -207,7 +207,7 @@ export default function EarningsCall() {
       return;
     }
 
-    const customTabsFromUser = user?.app_metadata?.customTabs || [];
+    const customTabsFromUser = user?.user_metadata?.customTabs || [];
     const validCustomTabs = customTabsFromUser.filter(
       (tab: TabConfig, index: number, self: TabConfig[]) =>
         tab.type === "analysis" &&
