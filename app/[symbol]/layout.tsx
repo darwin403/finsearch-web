@@ -28,7 +28,12 @@ const sections = [
   },
   { id: "concall", title: "Earnings Calls", path: "concall" },
   { id: "mda", title: "Risk Factors", path: "mda" },
-  { id: "regulation", title: "Regulation Dependencies", path: "regulation" },
+  {
+    id: "regulation",
+    title: "Regulation Dependencies",
+    path: "regulation",
+    new: true,
+  },
 ];
 
 interface CompanyData {
