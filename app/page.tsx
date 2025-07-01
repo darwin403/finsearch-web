@@ -250,7 +250,7 @@ export default function Home() {
         {/* Quick Actions */}
         <div className="text-center space-y-6">
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/DODLA/concall">
+            <Link href="/DODLA/concall?utm_source=sample_analysis">
               <Button size="lg" className="gap-2">
                 View Sample Analysis
               </Button>
