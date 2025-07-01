@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface NavigationTabsProps {
-  sections: Array<{ id: string; title: string; path: string; new?: boolean }>;
+  sections: Array<{
+    id: string;
+    title: string;
+    path: string;
+    new?: boolean;
+    disabled?: boolean;
+  }>;
   symbol: string;
 }
 
@@ -21,23 +27,36 @@ export function NavigationTabs({ sections, symbol }: NavigationTabsProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Tabs value={activeSectionId} className="w-full">
           <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent overflow-x-auto scrollbar-hide">
-            {sections.map((section) => (
-              <Link key={section.id} href={`/${symbol}/${section.path}`}>
+            {sections.map((section) =>
+              section.disabled ? (
                 <TabsTrigger
+                  key={section.id}
                   value={section.id}
-                  className="rounded-none py-3 px-4 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors whitespace-nowrap flex-shrink-0"
+                  disabled
+                  className="rounded-none py-3 px-4 bg-transparent text-slate-400 dark:text-slate-600 opacity-50 pointer-events-none cursor-not-allowed whitespace-nowrap flex-shrink-0"
                 >
                   <span className="flex items-center gap-2">
                     {section.title}
-                    {section.new && (
-                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        new
-                      </span>
-                    )}
                   </span>
                 </TabsTrigger>
-              </Link>
-            ))}
+              ) : (
+                <Link key={section.id} href={`/${symbol}/${section.path}`}>
+                  <TabsTrigger
+                    value={section.id}
+                    className="rounded-none py-3 px-4 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors whitespace-nowrap flex-shrink-0"
+                  >
+                    <span className="flex items-center gap-2">
+                      {section.title}
+                      {section.new && (
+                        <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                          new
+                        </span>
+                      )}
+                    </span>
+                  </TabsTrigger>
+                </Link>
+              )
+            )}
           </TabsList>
         </Tabs>
       </div>

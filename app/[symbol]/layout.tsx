@@ -5,36 +5,18 @@ import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider } from "@/lib/auth-context";
-import { CompanySearch } from "@/components/shared/company-search-box";
 import { Badge } from "@/components/ui/badge";
+import { AuthSection } from "./auth-section";
+import { FeedbackForm } from "@/components/shared/feedback-form";
+import TabLayoutClient, { allSections } from "./TabLayoutClient";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CompanySearch } from "@/components/shared/company-search-box";
 import { config } from "@/lib/config";
-import { AuthSection } from "./auth-section";
-import { NavigationTabs } from "./navigation-tabs";
-import { FeedbackForm } from "@/components/shared/feedback-form";
-
-const sections = [
-  // { id: "overview", title: "Overview", path: "overview", new: true },
-  {
-    id: "hierarchy",
-    title: "Business Structure",
-    path: "hierarchy",
-    new: true,
-  },
-  { id: "concall", title: "Earnings Calls", path: "concall" },
-  { id: "mda", title: "Risk Factors", path: "mda" },
-  {
-    id: "regulation",
-    title: "Regulation Dependencies",
-    path: "regulation",
-    new: true,
-  },
-];
 
 interface CompanyData {
   isin: string;
@@ -51,30 +33,15 @@ interface CompanyData {
   close_last_updated: string;
 }
 
-async function getCompanyData(symbol: string): Promise<CompanyData | null> {
-  try {
-    const response = await fetch(
-      `${config.api_v2.baseUrl}/company?identifier_screener=${symbol}`,
-      { cache: "no-store" }
-    );
-    if (!response.ok) throw new Error("Failed to fetch");
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching company data:", error);
-    return null;
-  }
-}
-
-async function SymbolLayoutContent({
+function SymbolLayoutContentWrapper({
   children,
-  params,
+  symbol,
+  companyData,
 }: {
   children: React.ReactNode;
-  params: Promise<{ symbol: string }>;
+  symbol: string;
+  companyData: CompanyData | null;
 }) {
-  const resolvedParams = await params;
-  const companyData = await getCompanyData(resolvedParams.symbol);
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
       {/* Header */}
@@ -102,9 +69,9 @@ async function SymbolLayoutContent({
             </Badge>
           </div>
 
-          {/* Search */}
+          {/* Search in navbar */}
           <div className="flex-1 flex justify-center min-w-0">
-            <CompanySearch sections={sections} />
+            <CompanySearch sections={allSections} />
           </div>
 
           {/* Auth & Theme - Hidden on mobile */}
@@ -265,8 +232,8 @@ async function SymbolLayoutContent({
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <NavigationTabs sections={sections} symbol={resolvedParams.symbol} />
+      {/* Navigation Tabs (Client) */}
+      <TabLayoutClient symbol={symbol} />
 
       {/* Main Content */}
       <main className="flex-1 bg-slate-50 dark:bg-slate-950">
@@ -280,15 +247,10 @@ async function SymbolLayoutContent({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 dark:border-slate-800 dark:bg-slate-950">
-        {/* Use flex, justify-between, items-center for alignment */}
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-sm sm:px-6 lg:px-8">
-          {/* Left side: Copyright and Build Info */}
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
             <span>© 2025 ArthaLens. All rights reserved.</span>
-            <span className="text-slate-300 dark:text-slate-700">|</span>{" "}
-            {/* Separator */}
-            {/* Build Info - subtle and aligned */}
-            {/* Apply text-sm to match copyright/about link, color is inherited */}
+            <span className="text-slate-300 dark:text-slate-700">|</span>
             <div className="flex items-center gap-2 text-sm">
               <span>Platform Updated:</span>
               {process.env.NEXT_PUBLIC_GIT_COMMIT_DATE ? (
@@ -313,8 +275,7 @@ async function SymbolLayoutContent({
               ) : (
                 <span>N/A</span>
               )}
-              <span className="text-slate-300 dark:text-slate-700">|</span>{" "}
-              {/* Separator */}
+              <span className="text-slate-300 dark:text-slate-700">|</span>
               {process.env.NEXT_PUBLIC_GIT_COMMIT_SHA ? (
                 <span>Build: {process.env.NEXT_PUBLIC_GIT_COMMIT_SHA}</span>
               ) : (
@@ -322,8 +283,6 @@ async function SymbolLayoutContent({
               )}
             </div>
           </div>
-
-          {/* Right side: About Link */}
           <div>
             <Link
               href="/"
@@ -345,9 +304,20 @@ export default async function SymbolLayout({
   children: React.ReactNode;
   params: Promise<{ symbol: string }>;
 }) {
+  const resolvedParams = await params;
+  const res = await fetch(
+    `${config.api_v2.baseUrl}/company?identifier_screener=${resolvedParams.symbol}`,
+    { cache: "no-store" }
+  );
+  const companyData = res.ok ? await res.json() : null;
   return (
     <AuthProvider>
-      <SymbolLayoutContent params={params}>{children}</SymbolLayoutContent>
+      <SymbolLayoutContentWrapper
+        symbol={resolvedParams.symbol}
+        companyData={companyData}
+      >
+        {children}
+      </SymbolLayoutContentWrapper>
     </AuthProvider>
   );
 }
