@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { CompanySearch } from "@/components/shared/company-search-box";
 import { config } from "@/lib/config";
+import ChangelogDropdown from "@/components/shared/changelog-dropdown";
 
 interface CompanyData {
   isin: string;
@@ -76,6 +77,7 @@ function SymbolLayoutContentWrapper({
 
           {/* Auth & Theme - Hidden on mobile */}
           <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+            <ChangelogDropdown />
             <AuthSection />
             <ThemeToggle />
           </div>

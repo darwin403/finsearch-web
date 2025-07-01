@@ -1,0 +1,38 @@
+{
+  "updates": [
+    {
+      "date": "2025-07-01",
+      "changes": [
+        {
+          "text": "<b>Homepage</b>: Added search functionality",
+          "type": "New"
+        },
+        {
+          "text": "<b>Tabs</b>: Disabled selection when company data is unavailable",
+          "type": "Improved"
+        }
+      ]
+    },
+    {
+      "date": "2025-06-27",
+      "changes": [
+        { "text": "Introduced '<b>Key Regulations</b>' dataset", "type": "New" }
+      ]
+    },
+    {
+      "date": "2025-06-23",
+      "changes": [
+        {
+          "text": "Introduced '<b>Business Structure</b>' dataset",
+          "type": "New"
+        }
+      ]
+    },
+    {
+      "date": "2025-06-01",
+      "changes": [
+        { "text": "Introduced '<b>Risk Factors</b>' dataset", "type": "New" }
+      ]
+    }
+  ]
+}
