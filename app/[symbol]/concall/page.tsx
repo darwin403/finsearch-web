@@ -49,6 +49,7 @@ import { StreamingTextDisplay } from "@/components/shared/streaming-text-display
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { config } from "@/lib/config";
 import { analytics } from "@/lib/analytics";
+import { useConcallData } from "@/lib/hooks";
 
 // Define sample prompts
 const SAMPLE_PROMPTS = [
@@ -93,8 +94,10 @@ export default function EarningsCall() {
   const symbol = (params.symbol as string) || "UNKNOWN";
   const { user } = useAuth();
 
-  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use the hook for data fetching
+  const { concallData, error, loading } = useConcallData(symbol);
+  const transcripts = concallData || [];
+
   const [selectedTranscript, setSelectedTranscript] =
     useState<Transcript | null>(null);
   const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
@@ -146,40 +149,21 @@ export default function EarningsCall() {
     },
   ];
 
-  // Fetch transcript data
+  // Set initial transcript when data loads
   useEffect(() => {
-    const fetchTranscripts = async () => {
-      try {
-        const response = await fetch(
-          `${config.api.baseUrl}/concalls/?symbol=${symbol}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch transcripts");
-
-        const data = await response.json();
-        setTranscripts(data);
-
-        if (data.length > 0) {
-          // Try to set transcript based on URL 'quarter' first
-          const initialQuarter = quarter || data[0]?.fiscal_period;
-          const transcriptFromUrl = data.find(
-            (t: Transcript) => t.fiscal_period === initialQuarter
-          );
-          setSelectedTranscript(transcriptFromUrl || data[0]);
-          // Ensure URL state is set if it wasn't initially or didn't match
-          if (!transcriptFromUrl || !quarter) {
-            setQuarter(data[0].fiscal_period);
-          }
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching transcripts:", error);
-        setLoading(false);
+    if (transcripts.length > 0 && !loading) {
+      // Try to set transcript based on URL 'quarter' first
+      const initialQuarter = quarter || transcripts[0]?.fiscal_period;
+      const transcriptFromUrl = transcripts.find(
+        (t: Transcript) => t.fiscal_period === initialQuarter
+      );
+      setSelectedTranscript(transcriptFromUrl || transcripts[0]);
+      // Ensure URL state is set if it wasn't initially or didn't match
+      if (!transcriptFromUrl || !quarter) {
+        setQuarter(transcripts[0].fiscal_period);
       }
-    };
-
-    fetchTranscripts();
-  }, [symbol]);
+    }
+  }, [transcripts, loading, quarter, setQuarter]);
 
   // Effect to sync selectedTranscript with URL 'quarter' state
   useEffect(() => {
@@ -397,6 +381,14 @@ export default function EarningsCall() {
     return (
       <div className="p-8 text-center text-slate-500 dark:text-slate-400">
         Loading transcript data...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+        {error}
       </div>
     );
   }

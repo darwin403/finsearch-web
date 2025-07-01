@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
 import {
   Table,
   TableHeader,
@@ -14,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InfoIcon, HelpCircle } from "lucide-react";
-import { config } from "@/lib/config";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TextWithCitations } from "@/lib/utils";
+import { useRegulationData } from "@/lib/hooks";
 
 interface Dependency {
   dependencyName: string;
@@ -32,23 +31,6 @@ interface Dependency {
   financialExposure: string;
   timePeriod: string;
   sensitivityScore: number;
-}
-
-interface RegulationData {
-  financialBenefitsAndIncentives: Dependency[];
-  policyDependenciesAndTrade: Dependency[];
-  operationalDependencies: Dependency[];
-  pendingOrFutureDependencies: Dependency[];
-  risksAndObservations: {
-    negativeDependencies: string[];
-    indirectDependencies: string[];
-    keyRiskFactors: string[];
-  };
-}
-
-interface ApiResponse {
-  data: RegulationData;
-  pdf_url: string;
 }
 
 function DependencyTable({
@@ -258,45 +240,7 @@ function DependencyTable({
 export default function RegulationDependenciesPage() {
   const params = useParams();
   const symbol = (params.symbol as string) || "UNKNOWN";
-  const [regulationData, setRegulationData] = useState<RegulationData | null>(
-    null
-  );
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchRegulationData = async () => {
-      try {
-        const response = await fetch(
-          `${config.api_v2.baseUrl}/regulations/?symbol=${symbol}`
-        );
-
-        if (response.status === 404) {
-          setError("No regulation data available for this company.");
-          setLoading(false);
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch regulation data");
-        }
-
-        const apiResponse: ApiResponse = await response.json();
-        setRegulationData(apiResponse.data);
-        setPdfUrl(apiResponse.pdf_url);
-        setError(null);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch regulation data"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRegulationData();
-  }, [symbol]);
+  const { regulationData, pdfUrl, error, loading } = useRegulationData(symbol);
 
   const renderContent = () => {
     if (loading) {
@@ -360,7 +304,7 @@ export default function RegulationDependenciesPage() {
                 <span className="font-medium">Negative Dependencies:</span>
                 <ul className="list-disc ml-6 text-sm text-red-700 dark:text-red-400">
                   {regulationData.risksAndObservations.negativeDependencies.map(
-                    (x, i) => (
+                    (x: string, i: number) => (
                       <li key={i}>
                         <TextWithCitations text={x} basePdfUrl={pdfUrl || ""} />
                       </li>
@@ -372,7 +316,7 @@ export default function RegulationDependenciesPage() {
                 <span className="font-medium">Indirect Dependencies:</span>
                 <ul className="list-disc ml-6 text-sm text-slate-700 dark:text-slate-300">
                   {regulationData.risksAndObservations.indirectDependencies.map(
-                    (x, i) => (
+                    (x: string, i: number) => (
                       <li key={i}>
                         <TextWithCitations text={x} basePdfUrl={pdfUrl || ""} />
                       </li>
@@ -384,7 +328,7 @@ export default function RegulationDependenciesPage() {
                 <span className="font-medium">Key Risk Factors:</span>
                 <ul className="list-disc ml-6 text-sm text-yellow-700 dark:text-yellow-400">
                   {regulationData.risksAndObservations.keyRiskFactors.map(
-                    (x, i) => (
+                    (x: string, i: number) => (
                       <li key={i}>
                         <TextWithCitations text={x} basePdfUrl={pdfUrl || ""} />
                       </li>

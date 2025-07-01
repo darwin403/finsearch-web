@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, use } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,8 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { config } from "@/lib/config";
 import { TextWithCitations, convertToPdfPage } from "@/lib/utils";
+import { useMdaData } from "@/lib/hooks";
 
 interface RiskFactor {
   riskTitle: string;
@@ -29,18 +29,6 @@ interface RiskFactor {
   severity: "High" | "Medium" | "Low";
   mitigationStrategy: string | null;
   changeVsPriorYear: "Increased" | "Decreased" | "Unchanged";
-}
-
-interface YearData {
-  id: string;
-  label: string;
-  pdf_url: string;
-  mda_section?: {
-    found: boolean;
-    start_page: number;
-    end_page: number;
-    section_name: string;
-  };
 }
 
 interface LayoutInfo {
@@ -294,84 +282,9 @@ function RiskFactorsTable({
 }
 
 function MdaContent({ symbol }: { symbol: string }) {
-  const [years, setYears] = useState<YearData[]>([]);
-  const [selectedYear, setSelectedYear] = useState<YearData | null>(null);
+  const { mdaData, error, loading } = useMdaData(symbol);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [riskFactors, setRiskFactors] = useState<RiskFactor[]>([]);
-  const [layoutInfo, setLayoutInfo] = useState<LayoutInfo | undefined>();
-  const [loading, setLoading] = useState(true);
-
-  // Fetch risk factors data
-  useEffect(() => {
-    const fetchRiskFactors = async () => {
-      try {
-        const response = await fetch(
-          `${config.api_v2.baseUrl}/mda/?symbol=${symbol}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch risk factors data");
-
-        const data = await response.json();
-
-        // Extract years from the response and sort them in descending order
-        const availableYears = Object.keys(data).sort(
-          (a, b) => parseInt(b) - parseInt(a)
-        );
-        const yearsData = availableYears.map((year) => ({
-          id: year,
-          label: `FY ${year}`,
-          pdf_url: data[year].pdf_url || "",
-          mda_section: data[year].mda_section,
-        }));
-
-        setYears(yearsData);
-
-        if (yearsData.length > 0) {
-          setSelectedYear(yearsData[0]); // Latest year is already first due to sort
-          setRiskFactors(data[yearsData[0].id].risk_factors || []);
-          setLayoutInfo(data[yearsData[0].id].layout_info);
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching risk factors:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchRiskFactors();
-  }, [symbol]);
-
-  // Update risk factors when year changes
-  useEffect(() => {
-    const fetchRiskFactorsForYear = async () => {
-      if (!selectedYear) return;
-
-      try {
-        const response = await fetch(
-          `${config.api_v2.baseUrl}/mda/?symbol=${symbol}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch risk factors data");
-
-        const data = await response.json();
-        setRiskFactors(data[selectedYear.id].risk_factors || []);
-        setLayoutInfo(data[selectedYear.id].layout_info);
-      } catch (error) {
-        console.error("Error fetching risk factors for year:", error);
-      }
-    };
-
-    fetchRiskFactorsForYear();
-  }, [selectedYear, symbol]);
-
-  const handlePrev = () => {
-    const idx = years.findIndex((y) => y.id === selectedYear?.id);
-    if (idx > 0) setSelectedYear(years[idx - 1]); // Move to newer year
-  };
-
-  const handleNext = () => {
-    const idx = years.findIndex((y) => y.id === selectedYear?.id);
-    if (idx < years.length - 1) setSelectedYear(years[idx + 1]); // Move to older year
-  };
 
   if (loading) {
     return (
@@ -381,13 +294,39 @@ function MdaContent({ symbol }: { symbol: string }) {
     );
   }
 
-  if (!selectedYear || years.length === 0) {
+  if (error || !mdaData || Object.keys(mdaData).length === 0) {
     return (
       <div className="p-8 text-center text-slate-500 dark:text-slate-400">
-        No MD&A data available for {symbol}.
+        {error || `No MD&A data available for ${symbol}.`}
       </div>
     );
   }
+
+  // Extract years from the response and sort them in descending order
+  const availableYears = Object.keys(mdaData).sort(
+    (a, b) => parseInt(b) - parseInt(a)
+  );
+  const yearsData = availableYears.map((year) => ({
+    id: year,
+    label: `FY ${year}`,
+    pdf_url: mdaData[year].pdf_url || "",
+    mda_section: mdaData[year].mda_section,
+  }));
+
+  const selectedYearObj =
+    yearsData.find((y) => y.id === selectedYear) || yearsData[0];
+  const riskFactors = mdaData[selectedYearObj.id]?.risk_factors || [];
+  const layoutInfo = mdaData[selectedYearObj.id]?.layout_info;
+
+  const handlePrev = () => {
+    const idx = yearsData.findIndex((y) => y.id === selectedYearObj.id);
+    if (idx > 0) setSelectedYear(yearsData[idx - 1].id);
+  };
+
+  const handleNext = () => {
+    const idx = yearsData.findIndex((y) => y.id === selectedYearObj.id);
+    if (idx < yearsData.length - 1) setSelectedYear(yearsData[idx + 1].id);
+  };
 
   return (
     <>
@@ -403,7 +342,9 @@ function MdaContent({ symbol }: { symbol: string }) {
             variant="outline"
             size="icon"
             onClick={handlePrev}
-            disabled={years.findIndex((y) => y.id === selectedYear?.id) === 0}
+            disabled={
+              yearsData.findIndex((y) => y.id === selectedYearObj.id) === 0
+            }
             className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -417,24 +358,24 @@ function MdaContent({ symbol }: { symbol: string }) {
             >
               <div className="flex items-center">
                 <Calendar className="hidden md:inline h-4 w-4 mr-2 text-slate-500 dark:text-slate-400" />
-                <span>{selectedYear?.label}</span>
+                <span>{selectedYearObj?.label}</span>
               </div>
               <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
             </Button>
             {showDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg z-20 w-[180px]">
                 <div className="p-1">
-                  {years.map((year) => (
+                  {yearsData.map((year) => (
                     <Button
                       key={year.id}
                       variant="ghost"
                       className={`w-full justify-start text-left text-sm px-2 py-1.5 rounded-sm ${
-                        selectedYear?.id === year.id
+                        selectedYearObj.id === year.id
                           ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100"
                           : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                       }`}
                       onClick={() => {
-                        setSelectedYear(year);
+                        setSelectedYear(year.id);
                         setShowDropdown(false);
                       }}
                     >
@@ -451,24 +392,24 @@ function MdaContent({ symbol }: { symbol: string }) {
             size="icon"
             onClick={handleNext}
             disabled={
-              years.findIndex((y) => y.id === selectedYear?.id) >=
-              years.length - 1
+              yearsData.findIndex((y) => y.id === selectedYearObj.id) >=
+              yearsData.length - 1
             }
             className="border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
 
-          {selectedYear?.pdf_url && (
+          {selectedYearObj?.pdf_url && (
             <a
-              href={`${selectedYear.pdf_url}${
-                selectedYear.mda_section?.found && layoutInfo
-                  ? `#page=${convertToPdfPage(
-                      selectedYear.mda_section.start_page,
+              href={
+                selectedYearObj.mda_section?.found && layoutInfo
+                  ? `${selectedYearObj.pdf_url}#page=${convertToPdfPage(
+                      selectedYearObj.mda_section.start_page,
                       layoutInfo
                     )}`
-                  : ""
-              }`}
+                  : selectedYearObj.pdf_url
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 min-w-[120px] md:w-auto"
@@ -489,7 +430,7 @@ function MdaContent({ symbol }: { symbol: string }) {
           <h2 className="text-lg font-semibold mb-4">Risk Factors Analysis</h2>
           <RiskFactorsTable
             riskFactors={riskFactors}
-            pdfUrl={selectedYear?.pdf_url || ""}
+            pdfUrl={selectedYearObj?.pdf_url || ""}
             layoutInfo={layoutInfo}
           />
         </div>

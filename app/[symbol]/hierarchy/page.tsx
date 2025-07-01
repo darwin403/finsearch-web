@@ -1,65 +1,16 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { HierarchyTree } from "@/components/hierarchy-tree";
-import { config } from "@/lib/config";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
-
-interface HierarchyNode {
-  name: string;
-  description: string;
-  children: HierarchyNode[];
-}
-
-interface HierarchyData {
-  name: string;
-  description: string;
-  children: HierarchyNode[];
-}
+import { useHierarchyData } from "@/lib/hooks";
 
 export default function HierarchyPage() {
   const params = useParams();
   const symbol = (params.symbol as string) || "UNKNOWN";
-  const [hierarchyData, setHierarchyData] = useState<HierarchyData | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchHierarchyData = async () => {
-      try {
-        const response = await fetch(
-          `${config.api_v2.baseUrl}/hierarchy/?symbol=${symbol}`
-        );
-
-        if (response.status === 404) {
-          setError("No hierarchy data available for this company.");
-          setLoading(false);
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch hierarchy data");
-        }
-
-        const data = await response.json();
-        setHierarchyData(data);
-        setError(null);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch hierarchy data"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHierarchyData();
-  }, [symbol]);
+  const { hierarchyData, error, loading } = useHierarchyData(symbol);
 
   const renderContent = () => {
     if (loading) {
