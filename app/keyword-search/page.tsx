@@ -68,6 +68,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // Mock data for demonstration
 const mockResults = [
@@ -158,6 +166,31 @@ const marketCapRanges = [
   { label: "Under ₹100 crore", count: 234, value: "under-100" },
 ];
 
+const documentTypes = [
+  { name: "Exchange Filings", count: 456 },
+  { name: "Annual Reports", count: 234 },
+  { name: "Earnings Transcript", count: 189 },
+  { name: "Investor Presentation", count: 123 },
+  { name: "Prospectus", count: 67 },
+];
+
+const quarters = [
+  { name: "2025 Q2", count: 45 },
+  { name: "2025 Q1", count: 78 },
+  { name: "2024 Q4", count: 89 },
+  { name: "2024 Q3", count: 156 },
+  { name: "2024 Q2", count: 234 },
+  { name: "2024 Q1", count: 198 },
+  { name: "2023 Q4", count: 145 },
+  { name: "2023 Q3", count: 167 },
+  { name: "2023 Q2", count: 189 },
+  { name: "2023 Q1", count: 156 },
+  { name: "2024 H2", count: 245 },
+  { name: "2024 H1", count: 432 },
+  { name: "2023 H2", count: 312 },
+  { name: "2023 H1", count: 289 },
+];
+
 const searchSuggestions = [
   "digital transformation",
   "revenue growth",
@@ -181,11 +214,22 @@ export default function KeywordSearchPage() {
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [selectedMarketCaps, setSelectedMarketCaps] = useState<string[]>([]);
+  const [selectedDocumentTypes, setSelectedDocumentTypes] = useState<string[]>(
+    []
+  );
+  const [selectedQuarters, setSelectedQuarters] = useState<string[]>([]);
+  const [quarterFilterType, setQuarterFilterType] = useState<
+    "filing" | "period"
+  >("filing");
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [aiQuestion, setAiQuestion] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [isIndustryOpen, setIsIndustryOpen] = useState(true);
   const [isCompanyOpen, setIsCompanyOpen] = useState(true);
   const [isMarketCapOpen, setIsMarketCapOpen] = useState(true);
+  const [isDocumentTypeOpen, setIsDocumentTypeOpen] = useState(true);
+  const [isQuartersOpen, setIsQuartersOpen] = useState(true);
   const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [sortBy, setSortBy] = useState("relevance");
@@ -221,16 +265,36 @@ export default function KeywordSearchPage() {
     );
   };
 
+  const toggleDocumentTypeFilter = (docType: string) => {
+    setSelectedDocumentTypes((prev) =>
+      prev.includes(docType)
+        ? prev.filter((d) => d !== docType)
+        : [...prev, docType]
+    );
+  };
+
+  const toggleQuarterFilter = (quarter: string) => {
+    setSelectedQuarters((prev) =>
+      prev.includes(quarter)
+        ? prev.filter((q) => q !== quarter)
+        : [...prev, quarter]
+    );
+  };
+
   const clearAllFilters = () => {
     setSelectedIndustries([]);
     setSelectedCompanies([]);
     setSelectedMarketCaps([]);
+    setSelectedDocumentTypes([]);
+    setSelectedQuarters([]);
   };
 
   const activeFiltersCount =
     selectedIndustries.length +
     selectedCompanies.length +
-    selectedMarketCaps.length;
+    selectedMarketCaps.length +
+    selectedDocumentTypes.length +
+    selectedQuarters.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -306,48 +370,100 @@ export default function KeywordSearchPage() {
             </Dialog>
           </div>
 
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="relative">
-            <Command className="rounded-lg border-2 border-gray-200 focus-within:border-blue-500">
-              <CommandInput
-                placeholder="Search for keywords, companies, or topics..."
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                className="text-lg py-3"
+          {/* AI Mode Toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="ai-mode"
+                checked={isAIMode}
+                onCheckedChange={setIsAIMode}
               />
-              {isSearchFocused &&
-                (() => {
-                  const filteredSuggestions = searchSuggestions.filter(
-                    (suggestion) =>
-                      searchQuery.length === 0 ||
-                      suggestion
-                        .toLowerCase()
-                        .includes(searchQuery.toLowerCase())
-                  );
+              <Label
+                htmlFor="ai-mode"
+                className="text-sm font-medium flex items-center"
+              >
+                <Sparkles className="w-4 h-4 mr-1" />
+                AI Mode
+              </Label>
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Generate AI answers based on filtered search results</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
 
-                  return filteredSuggestions.length > 0 ? (
-                    <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
-                      <CommandGroup heading="Popular Searches">
-                        {filteredSuggestions.map((suggestion) => (
-                          <CommandItem
-                            key={suggestion}
-                            onSelect={() => {
-                              setSearchQuery(suggestion);
-                              setIsSearchFocused(false);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Search className="mr-2 h-4 w-4" />
-                            {suggestion}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  ) : null;
-                })()}
-            </Command>
+          {/* Search Bar */}
+          <form onSubmit={handleSearch} className="relative space-y-4">
+            {isAIMode && (
+              <div className="space-y-2">
+                <Label htmlFor="ai-question" className="text-sm font-medium">
+                  What would you like to know?
+                </Label>
+                <textarea
+                  id="ai-question"
+                  placeholder="Ask a specific question about the search results..."
+                  value={aiQuestion}
+                  onChange={(e) => setAiQuestion(e.target.value)}
+                  className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <div className="relative">
+              <Command className="rounded-lg border-2 border-gray-200 focus-within:border-blue-500">
+                <CommandInput
+                  placeholder={
+                    isAIMode
+                      ? "Enter keywords to filter documents for AI analysis..."
+                      : "Search for keywords, companies, or topics..."
+                  }
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() =>
+                    setTimeout(() => setIsSearchFocused(false), 200)
+                  }
+                  className="text-lg py-3"
+                />
+                {isSearchFocused &&
+                  (() => {
+                    const filteredSuggestions = searchSuggestions.filter(
+                      (suggestion) =>
+                        searchQuery.length === 0 ||
+                        suggestion
+                          .toLowerCase()
+                          .includes(searchQuery.toLowerCase())
+                    );
+
+                    return filteredSuggestions.length > 0 ? (
+                      <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
+                        <CommandGroup heading="Popular Searches">
+                          {filteredSuggestions.map((suggestion) => (
+                            <CommandItem
+                              key={suggestion}
+                              onSelect={() => {
+                                setSearchQuery(suggestion);
+                                setIsSearchFocused(false);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Search className="mr-2 h-4 w-4" />
+                              {suggestion}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    ) : null;
+                  })()}
+              </Command>
+            </div>
           </form>
         </div>
       </div>
@@ -453,6 +569,149 @@ export default function KeywordSearchPage() {
                             <span className="truncate">{company.name}</span>
                             <span className="text-gray-500">
                               ({company.count})
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Separator />
+
+                {/* Document Type Filter */}
+                <Collapsible
+                  open={isDocumentTypeOpen}
+                  onOpenChange={setIsDocumentTypeOpen}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-gray-50 rounded">
+                    <span className="font-medium flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Document Type
+                    </span>
+                    {isDocumentTypeOpen ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-2">
+                    <ScrollArea className="h-48">
+                      {documentTypes.map((docType) => (
+                        <div
+                          key={docType.name}
+                          className="flex items-center space-x-2 p-1"
+                        >
+                          <Checkbox
+                            id={`doctype-${docType.name}`}
+                            checked={selectedDocumentTypes.includes(
+                              docType.name
+                            )}
+                            onCheckedChange={() =>
+                              toggleDocumentTypeFilter(docType.name)
+                            }
+                          />
+                          <label
+                            htmlFor={`doctype-${docType.name}`}
+                            className="text-sm flex-1 cursor-pointer flex justify-between"
+                          >
+                            <span className="truncate">{docType.name}</span>
+                            <span className="text-gray-500">
+                              ({docType.count})
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Separator />
+
+                {/* Quarters Filter */}
+                <Collapsible
+                  open={isQuartersOpen}
+                  onOpenChange={setIsQuartersOpen}
+                >
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-gray-50 rounded">
+                    <span className="font-medium flex items-center">
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Quarters
+                    </span>
+                    {isQuartersOpen ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 mt-2">
+                    {/* Filter Type Selection */}
+                    <div className="flex items-center justify-between">
+                      <RadioGroup
+                        value={quarterFilterType}
+                        onValueChange={(value) =>
+                          setQuarterFilterType(value as "filing" | "period")
+                        }
+                        className="flex items-center space-x-3"
+                      >
+                        <div className="flex items-center space-x-1">
+                          <RadioGroupItem value="filing" id="filing-date" />
+                          <Label htmlFor="filing-date" className="text-xs">
+                            Filing Date
+                          </Label>
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-3 h-3 text-gray-400 cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Filter by when the document was filed</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <RadioGroupItem value="period" id="document-period" />
+                          <Label htmlFor="document-period" className="text-xs">
+                            Document Period
+                          </Label>
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-3 h-3 text-gray-400 cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Filter by the period the document covers</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    <Separator />
+
+                    {/* Quarters List */}
+                    <ScrollArea className="h-48">
+                      {quarters.map((quarter) => (
+                        <div
+                          key={quarter.name}
+                          className="flex items-center space-x-2 p-1"
+                        >
+                          <Checkbox
+                            id={`quarter-${quarter.name}`}
+                            checked={selectedQuarters.includes(quarter.name)}
+                            onCheckedChange={() =>
+                              toggleQuarterFilter(quarter.name)
+                            }
+                          />
+                          <label
+                            htmlFor={`quarter-${quarter.name}`}
+                            className="text-sm flex-1 cursor-pointer flex justify-between"
+                          >
+                            <span className="truncate">{quarter.name}</span>
+                            <span className="text-gray-500">
+                              ({quarter.count})
                             </span>
                           </label>
                         </div>
@@ -602,6 +861,33 @@ export default function KeywordSearchPage() {
                     />
                   </Badge>
                 ))}
+                {selectedDocumentTypes.map((docType) => (
+                  <Badge
+                    key={docType}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    {docType}
+                    <X
+                      className="w-3 h-3 cursor-pointer"
+                      onClick={() => toggleDocumentTypeFilter(docType)}
+                    />
+                  </Badge>
+                ))}
+                {selectedQuarters.map((quarter) => (
+                  <Badge
+                    key={quarter}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    {quarter} (
+                    {quarterFilterType === "filing" ? "Filing" : "Period"})
+                    <X
+                      className="w-3 h-3 cursor-pointer"
+                      onClick={() => toggleQuarterFilter(quarter)}
+                    />
+                  </Badge>
+                ))}
                 {selectedMarketCaps.map((range) => (
                   <Badge
                     key={range}
@@ -615,6 +901,59 @@ export default function KeywordSearchPage() {
                     />
                   </Badge>
                 ))}
+              </div>
+            )}
+
+            {/* AI Answer Section */}
+            {isAIMode && aiQuestion && searchQuery && (
+              <div className="mb-6">
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-6">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Sparkles className="w-4 h-4 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            AI Answer
+                          </h3>
+                          <Badge variant="outline" className="text-xs">
+                            Based on {totalResults} filtered results
+                          </Badge>
+                        </div>
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600 mb-1">
+                            <strong>Question:</strong> {aiQuestion}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <strong>Keywords:</strong> {searchQuery}
+                          </p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4 border">
+                          <p className="text-gray-700 leading-relaxed">
+                            Based on the analysis of {totalResults} documents
+                            matching "{searchQuery}", I can provide the
+                            following insights regarding your question about{" "}
+                            {aiQuestion.toLowerCase()}: Companies across various
+                            sectors are showing strong momentum in digital
+                            transformation initiatives, with particular focus on
+                            cloud services and AI integration. The data
+                            indicates a 23% increase in technology investments
+                            compared to previous quarters, with major players
+                            like Reliance Industries and TCS leading the
+                            adoption curve. Revenue growth patterns suggest that
+                            companies prioritizing digital infrastructure are
+                            outperforming their peers by an average of 15% in
+                            market performance.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
