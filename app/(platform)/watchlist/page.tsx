@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -11,6 +11,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
+import { algoliasearch } from "algoliasearch";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,81 +51,20 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 
-// Mock data for companies
-const mockCompanies = [
-  {
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    sector: "Technology",
-    price: 175.43,
-    change: 2.34,
-    changePercent: 1.35,
-  },
-  {
-    symbol: "GOOGL",
-    name: "Alphabet Inc.",
-    sector: "Technology",
-    price: 142.56,
-    change: -1.23,
-    changePercent: -0.86,
-  },
-  {
-    symbol: "MSFT",
-    name: "Microsoft Corporation",
-    sector: "Technology",
-    price: 378.85,
-    change: 5.67,
-    changePercent: 1.52,
-  },
-  {
-    symbol: "TSLA",
-    name: "Tesla Inc.",
-    sector: "Automotive",
-    price: 248.42,
-    change: -3.45,
-    changePercent: -1.37,
-  },
-  {
-    symbol: "AMZN",
-    name: "Amazon.com Inc.",
-    sector: "E-commerce",
-    price: 155.89,
-    change: 0.78,
-    changePercent: 0.5,
-  },
-  {
-    symbol: "NVDA",
-    name: "NVIDIA Corporation",
-    sector: "Technology",
-    price: 875.28,
-    change: 12.45,
-    changePercent: 1.44,
-  },
-  {
-    symbol: "META",
-    name: "Meta Platforms Inc.",
-    sector: "Technology",
-    price: 485.32,
-    change: -2.18,
-    changePercent: -0.45,
-  },
-  {
-    symbol: "JPM",
-    name: "JPMorgan Chase & Co.",
-    sector: "Financial",
-    price: 168.45,
-    change: 1.23,
-    changePercent: 0.73,
-  },
-];
+// Algolia configuration
+const ALGOLIA_APP_ID = "WP3HSGTPKW";
+const ALGOLIA_SEARCH_API_KEY = "9bc27007a715e558c8331eaddfdd155e";
+const ALGOLIA_INDEX_NAME = "finsearch_companies";
+const searchClient = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY);
 
 interface Company {
+  objectID: string;
   symbol: string;
-  name: string;
-  sector: string;
-  price: number;
-  change: number;
-  changePercent: number;
+  company_name: string;
+  sector?: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
 }
 
 interface Watchlist {
@@ -140,19 +80,13 @@ export default function WatchlistPage() {
       id: "1",
       name: "Tech Giants",
       description: "Large-cap technology companies with strong fundamentals",
-      companies: [
-        mockCompanies[0],
-        mockCompanies[1],
-        mockCompanies[2],
-        mockCompanies[5],
-        mockCompanies[6],
-      ],
+      companies: [],
     },
     {
       id: "2",
       name: "Growth Stocks",
       description: "High-growth potential companies across various sectors",
-      companies: [mockCompanies[3], mockCompanies[4], mockCompanies[5]],
+      companies: [],
     },
   ]);
 
@@ -165,6 +99,58 @@ export default function WatchlistPage() {
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [newWatchlistDescription, setNewWatchlistDescription] = useState("");
   const [searchOpen, setSearchOpen] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [availableCompanies, setAvailableCompanies] = useState<Company[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setAvailableCompanies([]);
+      return;
+    }
+
+    setIsSearchLoading(true);
+    try {
+      const response = await searchClient.search({
+        requests: [
+          {
+            indexName: ALGOLIA_INDEX_NAME,
+            query,
+            hitsPerPage: 20,
+          },
+        ],
+      });
+
+      const firstResult = response?.results?.[0];
+      if (
+        firstResult &&
+        "hits" in firstResult &&
+        Array.isArray(firstResult.hits)
+      ) {
+        // Log the results to debug
+        console.log("Search results:", firstResult.hits);
+        setAvailableCompanies(firstResult.hits as Company[]);
+      } else {
+        console.log("No results found");
+        setAvailableCompanies([]);
+      }
+    } catch (err) {
+      console.error("Algolia search error:", err);
+      setAvailableCompanies([]);
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!searchOpen) return;
+
+    const timer = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchOpen]);
 
   const createWatchlist = () => {
     if (!newWatchlistName.trim()) return;
@@ -225,6 +211,8 @@ export default function WatchlistPage() {
       )
     );
     setSearchOpen(null);
+    setSearchQuery("");
+    setAvailableCompanies([]);
   };
 
   const removeCompanyFromWatchlist = (watchlistId: string, symbol: string) => {
@@ -244,11 +232,11 @@ export default function WatchlistPage() {
     setIsEditDialogOpen(true);
   };
 
-  const availableCompanies = (watchlistId: string) => {
+  const getFilteredCompanies = (watchlistId: string) => {
     const currentWatchlist = watchlists.find((w) => w.id === watchlistId);
-    if (!currentWatchlist) return mockCompanies;
+    if (!currentWatchlist) return availableCompanies;
 
-    return mockCompanies.filter(
+    return availableCompanies.filter(
       (company) =>
         !currentWatchlist.companies.some((c) => c.symbol === company.symbol)
     );
@@ -319,7 +307,7 @@ export default function WatchlistPage() {
         </div>
 
         {watchlists.length === 0 ? (
-          <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950 rounded-none">
             <CardContent className="text-center py-12">
               <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2 text-slate-900 dark:text-slate-100">
@@ -335,7 +323,7 @@ export default function WatchlistPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950 rounded-none">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="border-b border-slate-200 dark:border-slate-800">
                 <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar rounded-none border-b border-slate-200 dark:border-slate-800">
@@ -384,9 +372,13 @@ export default function WatchlistPage() {
                     <div className="flex items-center gap-2">
                       <Popover
                         open={searchOpen === watchlist.id}
-                        onOpenChange={(open) =>
-                          setSearchOpen(open ? watchlist.id : null)
-                        }
+                        onOpenChange={(open) => {
+                          setSearchOpen(open ? watchlist.id : null);
+                          if (!open) {
+                            setSearchQuery("");
+                            setAvailableCompanies([]);
+                          }
+                        }}
                       >
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm">
@@ -395,38 +387,60 @@ export default function WatchlistPage() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-0" align="end">
-                          <Command>
-                            <CommandInput placeholder="Search companies..." />
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search companies..."
+                              value={searchQuery}
+                              onValueChange={setSearchQuery}
+                            />
                             <CommandList>
-                              <CommandEmpty>No companies found.</CommandEmpty>
-                              <CommandGroup>
-                                {availableCompanies(watchlist.id).map(
-                                  (company) => (
-                                    <CommandItem
-                                      key={company.symbol}
-                                      onSelect={() =>
-                                        addCompanyToWatchlist(
-                                          watchlist.id,
-                                          company
-                                        )
-                                      }
-                                      className="flex items-center justify-between"
-                                    >
-                                      <div>
-                                        <div className="font-medium">
-                                          {company.symbol}
+                              {isSearchLoading ? (
+                                <CommandEmpty>Loading...</CommandEmpty>
+                              ) : searchQuery.trim() === "" ? (
+                                <CommandEmpty>
+                                  Type to search companies...
+                                </CommandEmpty>
+                              ) : getFilteredCompanies(watchlist.id).length ===
+                                0 ? (
+                                <CommandEmpty>No companies found.</CommandEmpty>
+                              ) : (
+                                <CommandGroup>
+                                  {getFilteredCompanies(watchlist.id).map(
+                                    (company) => (
+                                      <CommandItem
+                                        key={company.objectID}
+                                        value={company.symbol}
+                                        onSelect={() => {
+                                          addCompanyToWatchlist(
+                                            watchlist.id,
+                                            company
+                                          );
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div>
+                                            <div className="font-medium">
+                                              {company.symbol}
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                              {company.company_name}
+                                            </div>
+                                          </div>
+                                          {company.sector && (
+                                            <Badge
+                                              variant="outline"
+                                              className="ml-2"
+                                            >
+                                              {company.sector}
+                                            </Badge>
+                                          )}
                                         </div>
-                                        <div className="text-sm text-muted-foreground">
-                                          {company.name}
-                                        </div>
-                                      </div>
-                                      <Badge variant="outline">
-                                        {company.sector}
-                                      </Badge>
-                                    </CommandItem>
-                                  )
-                                )}
-                              </CommandGroup>
+                                      </CommandItem>
+                                    )
+                                  )}
+                                </CommandGroup>
+                              )}
                             </CommandList>
                           </Command>
                         </PopoverContent>
@@ -453,7 +467,7 @@ export default function WatchlistPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                    <div className="border border-slate-200 dark:border-slate-800 overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-slate-50 dark:bg-slate-900/50">
@@ -488,42 +502,66 @@ export default function WatchlistPage() {
                                 {company.symbol}
                               </TableCell>
                               <TableCell className="text-slate-700 dark:text-slate-300">
-                                {company.name}
+                                {company.company_name}
                               </TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="text-xs">
-                                  {company.sector}
-                                </Badge>
+                                {company.sector ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {company.sector}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">
+                                    N/A
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right font-mono text-slate-900 dark:text-slate-100">
-                                ${company.price.toFixed(2)}
+                                {company.price
+                                  ? `$${company.price.toFixed(2)}`
+                                  : "N/A"}
                               </TableCell>
                               <TableCell
                                 className={`text-right font-mono ${
-                                  company.change >= 0
+                                  company.change && company.change >= 0
                                     ? "text-green-600 dark:text-green-400"
-                                    : "text-red-600 dark:text-red-400"
+                                    : company.change && company.change < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-slate-600 dark:text-slate-400"
                                 }`}
                               >
-                                <div className="flex items-center justify-end gap-1">
-                                  {company.change >= 0 ? (
-                                    <TrendingUp className="w-3 h-3" />
-                                  ) : (
-                                    <TrendingDown className="w-3 h-3" />
-                                  )}
-                                  {company.change >= 0 ? "+" : ""}
-                                  {company.change.toFixed(2)}
-                                </div>
+                                {company.change !== undefined ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    {company.change >= 0 ? (
+                                      <TrendingUp className="w-3 h-3" />
+                                    ) : (
+                                      <TrendingDown className="w-3 h-3" />
+                                    )}
+                                    {company.change >= 0 ? "+" : ""}
+                                    {company.change.toFixed(2)}
+                                  </div>
+                                ) : (
+                                  "N/A"
+                                )}
                               </TableCell>
                               <TableCell
                                 className={`text-right font-mono ${
+                                  company.changePercent &&
                                   company.changePercent >= 0
                                     ? "text-green-600 dark:text-green-400"
-                                    : "text-red-600 dark:text-red-400"
+                                    : company.changePercent &&
+                                      company.changePercent < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-slate-600 dark:text-slate-400"
                                 }`}
                               >
-                                {company.changePercent >= 0 ? "+" : ""}
-                                {company.changePercent.toFixed(2)}%
+                                {company.changePercent !== undefined ? (
+                                  <>
+                                    {company.changePercent >= 0 ? "+" : ""}
+                                    {company.changePercent.toFixed(2)}%
+                                  </>
+                                ) : (
+                                  "N/A"
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Button
