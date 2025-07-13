@@ -255,45 +255,325 @@ export default function WatchlistPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Watchlists
-          </h1>
-          <p className="text-muted-foreground">
-            Monitor and track your favorite companies
-          </p>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 relative">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Watchlists
+            </h1>
+            <p className="text-muted-foreground">
+              Monitor and track your favorite companies
+            </p>
+          </div>
+
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                New Watchlist
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Watchlist</DialogTitle>
+                <DialogDescription>
+                  Create a new watchlist to organize and monitor companies
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={newWatchlistName}
+                    onChange={(e) => setNewWatchlistName(e.target.value)}
+                    placeholder="Enter watchlist name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={newWatchlistDescription}
+                    onChange={(e) => setNewWatchlistDescription(e.target.value)}
+                    placeholder="Enter watchlist description"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={createWatchlist}>Create Watchlist</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              New Watchlist
-            </Button>
-          </DialogTrigger>
+        {watchlists.length === 0 ? (
+          <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
+            <CardContent className="text-center py-12">
+              <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-slate-900 dark:text-slate-100">
+                No watchlists yet
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Create your first watchlist to start monitoring companies
+              </p>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Watchlist
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <div className="border-b border-slate-200 dark:border-slate-800">
+                <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar rounded-none border-b border-slate-200 dark:border-slate-800">
+                  {watchlists.map((watchlist) => (
+                    <TabsTrigger
+                      key={watchlist.id}
+                      value={watchlist.id}
+                      className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                    >
+                      {watchlist.name}
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {watchlist.companies.length}
+                      </Badge>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              {watchlists.map((watchlist) => (
+                <TabsContent
+                  key={watchlist.id}
+                  value={watchlist.id}
+                  className="space-y-4 p-6"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                          {watchlist.name}
+                        </h2>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(watchlist)}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      {watchlist.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {watchlist.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Popover
+                        open={searchOpen === watchlist.id}
+                        onOpenChange={(open) =>
+                          setSearchOpen(open ? watchlist.id : null)
+                        }
+                      >
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Search className="w-4 h-4 mr-2" />
+                            Add Company
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="end">
+                          <Command>
+                            <CommandInput placeholder="Search companies..." />
+                            <CommandList>
+                              <CommandEmpty>No companies found.</CommandEmpty>
+                              <CommandGroup>
+                                {availableCompanies(watchlist.id).map(
+                                  (company) => (
+                                    <CommandItem
+                                      key={company.symbol}
+                                      onSelect={() =>
+                                        addCompanyToWatchlist(
+                                          watchlist.id,
+                                          company
+                                        )
+                                      }
+                                      className="flex items-center justify-between"
+                                    >
+                                      <div>
+                                        <div className="font-medium">
+                                          {company.symbol}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                          {company.name}
+                                        </div>
+                                      </div>
+                                      <Badge variant="outline">
+                                        {company.sector}
+                                      </Badge>
+                                    </CommandItem>
+                                  )
+                                )}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteWatchlist(watchlist.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {watchlist.companies.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Building2 className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-muted-foreground">
+                        No companies in this watchlist
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Add companies to start monitoring
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50 dark:bg-slate-900/50">
+                            <TableHead className="font-medium text-slate-900 dark:text-slate-100">
+                              Symbol
+                            </TableHead>
+                            <TableHead className="font-medium text-slate-900 dark:text-slate-100">
+                              Company
+                            </TableHead>
+                            <TableHead className="font-medium text-slate-900 dark:text-slate-100">
+                              Sector
+                            </TableHead>
+                            <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
+                              Price
+                            </TableHead>
+                            <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
+                              Change
+                            </TableHead>
+                            <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
+                              Change %
+                            </TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {watchlist.companies.map((company) => (
+                            <TableRow
+                              key={company.symbol}
+                              className="hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                            >
+                              <TableCell className="font-medium text-slate-900 dark:text-slate-100">
+                                {company.symbol}
+                              </TableCell>
+                              <TableCell className="text-slate-700 dark:text-slate-300">
+                                {company.name}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {company.sector}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-slate-900 dark:text-slate-100">
+                                ${company.price.toFixed(2)}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-mono ${
+                                  company.change >= 0
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  {company.change >= 0 ? (
+                                    <TrendingUp className="w-3 h-3" />
+                                  ) : (
+                                    <TrendingDown className="w-3 h-3" />
+                                  )}
+                                  {company.change >= 0 ? "+" : ""}
+                                  {company.change.toFixed(2)}
+                                </div>
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-mono ${
+                                  company.changePercent >= 0
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {company.changePercent >= 0 ? "+" : ""}
+                                {company.changePercent.toFixed(2)}%
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    removeCompanyFromWatchlist(
+                                      watchlist.id,
+                                      company.symbol
+                                    )
+                                  }
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+              ))}
+            </Tabs>
+          </Card>
+        )}
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Watchlist</DialogTitle>
+              <DialogTitle>Edit Watchlist</DialogTitle>
               <DialogDescription>
-                Create a new watchlist to organize and monitor companies
+                Update the name and description of your watchlist
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="edit-name">Name</Label>
                 <Input
-                  id="name"
+                  id="edit-name"
                   value={newWatchlistName}
                   onChange={(e) => setNewWatchlistName(e.target.value)}
                   placeholder="Enter watchlist name"
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="edit-description">Description (Optional)</Label>
                 <Textarea
-                  id="description"
+                  id="edit-description"
                   value={newWatchlistDescription}
                   onChange={(e) => setNewWatchlistDescription(e.target.value)}
                   placeholder="Enter watchlist description"
@@ -304,290 +584,15 @@ export default function WatchlistPage() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsCreateDialogOpen(false)}
+                onClick={() => setIsEditDialogOpen(false)}
               >
                 Cancel
               </Button>
-              <Button onClick={createWatchlist}>Create Watchlist</Button>
+              <Button onClick={updateWatchlist}>Update Watchlist</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-
-      {watchlists.length === 0 ? (
-        <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
-          <CardContent className="text-center py-12">
-            <Building2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2 text-slate-900 dark:text-slate-100">
-              No watchlists yet
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              Create your first watchlist to start monitoring companies
-            </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Watchlist
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-950">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="border-b border-slate-200 dark:border-slate-800">
-              <TabsList className="h-11 bg-transparent justify-start flex overflow-x-auto md:overflow-x-visible whitespace-nowrap md:whitespace-normal overflow-y-hidden no-scrollbar rounded-none border-b border-slate-200 dark:border-slate-800">
-                {watchlists.map((watchlist) => (
-                  <TabsTrigger
-                    key={watchlist.id}
-                    value={watchlist.id}
-                    className="h-11 px-4 flex-shrink-0 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-500 data-[state=active]:bg-transparent relative text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                  >
-                    {watchlist.name}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {watchlist.companies.length}
-                    </Badge>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-
-            {watchlists.map((watchlist) => (
-              <TabsContent
-                key={watchlist.id}
-                value={watchlist.id}
-                className="space-y-4 p-6"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                        {watchlist.name}
-                      </h2>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(watchlist)}
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    {watchlist.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {watchlist.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Popover
-                      open={searchOpen === watchlist.id}
-                      onOpenChange={(open) =>
-                        setSearchOpen(open ? watchlist.id : null)
-                      }
-                    >
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Search className="w-4 h-4 mr-2" />
-                          Add Company
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 p-0" align="end">
-                        <Command>
-                          <CommandInput placeholder="Search companies..." />
-                          <CommandList>
-                            <CommandEmpty>No companies found.</CommandEmpty>
-                            <CommandGroup>
-                              {availableCompanies(watchlist.id).map(
-                                (company) => (
-                                  <CommandItem
-                                    key={company.symbol}
-                                    onSelect={() =>
-                                      addCompanyToWatchlist(
-                                        watchlist.id,
-                                        company
-                                      )
-                                    }
-                                    className="flex items-center justify-between"
-                                  >
-                                    <div>
-                                      <div className="font-medium">
-                                        {company.symbol}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {company.name}
-                                      </div>
-                                    </div>
-                                    <Badge variant="outline">
-                                      {company.sector}
-                                    </Badge>
-                                  </CommandItem>
-                                )
-                              )}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteWatchlist(watchlist.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {watchlist.companies.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Building2 className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">
-                      No companies in this watchlist
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Add companies to start monitoring
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-                          <TableHead className="font-medium text-slate-900 dark:text-slate-100">
-                            Symbol
-                          </TableHead>
-                          <TableHead className="font-medium text-slate-900 dark:text-slate-100">
-                            Company
-                          </TableHead>
-                          <TableHead className="font-medium text-slate-900 dark:text-slate-100">
-                            Sector
-                          </TableHead>
-                          <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
-                            Price
-                          </TableHead>
-                          <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
-                            Change
-                          </TableHead>
-                          <TableHead className="text-right font-medium text-slate-900 dark:text-slate-100">
-                            Change %
-                          </TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {watchlist.companies.map((company) => (
-                          <TableRow
-                            key={company.symbol}
-                            className="hover:bg-slate-50 dark:hover:bg-slate-900/50"
-                          >
-                            <TableCell className="font-medium text-slate-900 dark:text-slate-100">
-                              {company.symbol}
-                            </TableCell>
-                            <TableCell className="text-slate-700 dark:text-slate-300">
-                              {company.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {company.sector}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-slate-900 dark:text-slate-100">
-                              ${company.price.toFixed(2)}
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${
-                                company.change >= 0
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              <div className="flex items-center justify-end gap-1">
-                                {company.change >= 0 ? (
-                                  <TrendingUp className="w-3 h-3" />
-                                ) : (
-                                  <TrendingDown className="w-3 h-3" />
-                                )}
-                                {company.change >= 0 ? "+" : ""}
-                                {company.change.toFixed(2)}
-                              </div>
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${
-                                company.changePercent >= 0
-                                  ? "text-green-600 dark:text-green-400"
-                                  : "text-red-600 dark:text-red-400"
-                              }`}
-                            >
-                              {company.changePercent >= 0 ? "+" : ""}
-                              {company.changePercent.toFixed(2)}%
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  removeCompanyFromWatchlist(
-                                    watchlist.id,
-                                    company.symbol
-                                  )
-                                }
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </Card>
-      )}
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Watchlist</DialogTitle>
-            <DialogDescription>
-              Update the name and description of your watchlist
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={newWatchlistName}
-                onChange={(e) => setNewWatchlistName(e.target.value)}
-                placeholder="Enter watchlist name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-description">Description (Optional)</Label>
-              <Textarea
-                id="edit-description"
-                value={newWatchlistDescription}
-                onChange={(e) => setNewWatchlistDescription(e.target.value)}
-                placeholder="Enter watchlist description"
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={updateWatchlist}>Update Watchlist</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

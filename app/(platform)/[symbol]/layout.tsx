@@ -2,6 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { formatInTimeZone } from "date-fns-tz";
 import TabLayoutClient from "./TabLayoutClient";
+import { FeedbackForm } from "@/components/shared/feedback-form";
 import {
   Tooltip,
   TooltipContent,
@@ -190,7 +191,12 @@ function SymbolLayoutContentWrapper({
       <TabLayoutClient symbol={symbol} />
 
       {/* Company-specific content */}
-      {children}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 relative">
+        <div className="absolute right-0 sm:right-8 sm:top-8 z-50">
+          <FeedbackForm />
+        </div>
+        {children}
+      </div>
     </>
   );
 }

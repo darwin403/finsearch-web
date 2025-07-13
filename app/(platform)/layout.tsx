@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { AuthSection } from "./[symbol]/auth-section";
-import { FeedbackForm } from "@/components/shared/feedback-form";
+
 import {
   Tooltip,
   TooltipContent,
@@ -65,14 +65,7 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 bg-slate-50 dark:bg-slate-950">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 relative">
-            <div className="absolute right-0 sm:right-8 sm:top-8 z-50">
-              <FeedbackForm />
-            </div>
-            {children}
-          </div>
-        </main>
+        <main className="flex-1 bg-slate-50 dark:bg-slate-950">{children}</main>
 
         {/* Footer */}
         <footer className="border-t border-slate-200 bg-white py-6 dark:border-slate-800 dark:bg-slate-950">
