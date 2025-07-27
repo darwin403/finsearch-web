@@ -3,19 +3,17 @@
 import type React from "react";
 
 import { useState } from "react";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import {
   Search,
   Building2,
   TrendingUp,
   FileText,
   Info,
-  MoreHorizontal,
-  Eye,
-  Download,
   Calendar,
   Tag,
   Folder,
-  FileText as FileIcon,
   Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,13 +52,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import { Label } from "@/components/ui/label";
 import {
   Tooltip,
@@ -79,117 +71,176 @@ import {
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 
-// Mock data for demonstration
+// Normalized mock data for demonstration
 const mockResults = [
   {
-    id: 1,
-    company: "Reliance Industries Ltd",
-    issuer_name: "Reliance Industries Ltd",
+    id: "1",
+    headline: "Reliance Industries - Board Intimation",
+    company_name: "Reliance Industries Ltd",
+    symbol: "RELIANCE",
     industry: "Oil & Gas",
-    marketCap: "₹18,50,000 crore",
-    documentType: "Exchange Filing",
-    headline: "Reliance announces major investment in renewables",
-    attachmentname:
-      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=12345.pdf",
-    nsurl: "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500325",
-    scrip_id: "500325",
-    categoryname: "Corporate Announcements",
-    subcatname: "Investments",
+    market_cap: "₹18,50,000 crore",
+    document_type: "exchange_filing",
+    source: "BSE",
+    disclosure_date: "2024-03-15T14:30:00Z",
     total_pages: 12,
-    newssub: "Investment in green energy",
-    more: "Extra info",
+    file_size: 3408851,
+    category: "Corporate Announcements",
+    subcategory: "Investments",
+    subject: "Investment in green energy",
+    critical_news: true,
+    audited: false,
+    revised: false,
+    standalone: false,
+    consolidated: false,
+    document_url:
+      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=12345.pdf",
+    company_url:
+      "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500325",
     excerpt:
       "The company has shown strong performance in digital services and retail segments, with significant investments in renewable energy...",
-    date: "2024-03-15",
-    relevanceScore: 95,
     highlight:
-      "Reliance <em>announces</em> a major investment in <em>renewables</em> as part of its long-term strategy. The board approved a plan to allocate ₹75,000 crore towards <em>green energy</em> projects, including solar, wind, and hydrogen. This move is expected to strengthen Reliance's position in the <em>sustainable energy</em> sector, drive innovation, and create new jobs. The company also reported a 15% increase in revenue from its digital and retail segments, highlighting the success of its diversification strategy. Analysts believe this investment will accelerate India's transition to clean energy and set a benchmark for other conglomerates. The announcement was well received by investors, with shares rising 3% post-filing.".slice(
-        0,
-        250
-      ),
-    text: "Reliance Industries Ltd has announced a major investment in renewable energy as part of its long-term strategy.",
+      "Reliance <em>announces</em> a major investment in <em>renewables</em> as part of its long-term strategy. The board approved a plan to allocate ₹75,000 crore towards <em>green energy</em> projects, including solar, wind, and hydrogen. This move is expected to strengthen Reliance's position in the <em>sustainable energy</em> sector, drive innovation, and create new jobs.",
+    relevance_score: 95,
   },
   {
-    id: 2,
-    company: "Tata Consultancy Services",
+    id: "2",
+    headline: "TCS - Earnings Call Transcript Q4 FY24",
+    company_name: "Tata Consultancy Services",
+    symbol: "TCS",
     industry: "Information Technology",
-    marketCap: "₹12,80,000 crore",
-    documentType: "Earnings Call Transcript",
+    market_cap: "₹12,80,000 crore",
+    document_type: "transcript",
+    source: "Screener",
+    disclosure_date: "2024-02-28T16:45:00Z",
+    financial_period: "Q4FY24",
+    financial_period_range: { from: "2024-01-01", to: "2024-03-31" },
+    total_pages: 8,
+    file_size: 2048576,
+    event_type: "earnings_call",
+    critical_news: false,
+    audited: false,
+    revised: false,
+    standalone: false,
+    consolidated: false,
+    document_url: "https://example.com/transcript.pdf",
+    company_url: "https://example.com/tcs",
     excerpt:
       "Digital transformation initiatives continue to drive growth, with cloud services and AI solutions gaining traction...",
-    date: "2024-02-28",
-    total_pages: 8,
-    relevanceScore: 92,
     highlight:
-      "During the Q4 earnings call, TCS management emphasized the company's focus on <em>digital transformation</em> and cloud adoption. Revenue from <em>cloud services</em> grew by 22% YoY, driven by strong demand in North America and Europe. The CEO highlighted new client wins in the <em>AI</em> and automation space, noting that TCS is investing in upskilling its workforce to meet evolving client needs. Operating margin remained stable at 25.1%, and the board declared a final dividend of ₹24 per share. Analysts expect continued momentum in <em>digital</em> and cloud segments as enterprises accelerate their modernization journeys.".slice(
-        0,
-        250
-      ),
-    text: "TCS earnings call transcript discusses digital transformation and growth.",
+      "During the Q4 earnings call, TCS management emphasized the company's focus on <em>digital transformation</em> and cloud adoption. Revenue from <em>cloud services</em> grew by 22% YoY, driven by strong demand in North America and Europe. The CEO highlighted new client wins in the <em>AI</em> and automation space, noting that TCS is investing in upskilling its workforce to meet evolving client needs.",
+    relevance_score: 92,
   },
   {
-    id: 3,
-    company: "HDFC Bank Ltd",
+    id: "3",
+    headline: "HDFC Bank - Financial Result Q4 FY24",
+    company_name: "HDFC Bank Ltd",
+    symbol: "HDFCBANK",
     industry: "Banking & Financial Services",
-    marketCap: "₹8,90,000 crore",
-    documentType: "Exchange Filing",
-    headline: "HDFC Bank quarterly results announced",
-    attachmentname:
-      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=67890.pdf",
-    nsurl: "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500180",
-    issuer_name: "HDFC Bank Ltd",
-    scrip_id: "500180",
-    categoryname: "Financial Results",
-    subcatname: "Quarterly Results",
+    market_cap: "₹8,90,000 crore",
+    document_type: "financial_result",
+    source: "BSE",
+    disclosure_date: "2024-03-10T09:15:00Z",
+    financial_period: "Q4FY24",
+    financial_period_range: { from: "2024-01-01", to: "2024-03-31" },
     total_pages: 20,
-    newssub: "Q4 Results",
-    more: "",
+    file_size: 5120000,
+    critical_news: false,
+    audited: true,
+    revised: false,
+    standalone: true,
+    consolidated: true,
+    document_url:
+      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=67890.pdf",
+    company_url:
+      "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500180",
     excerpt:
       "Credit growth remains robust with improved asset quality metrics and strong deposit mobilization...",
-    date: "2024-03-10",
-    relevanceScore: 88,
     highlight:
-      "HDFC Bank reported a <em>robust</em> quarterly performance with net profit rising 18% YoY. <em>Credit growth</em> remained strong at 16%, supported by healthy retail and corporate loan disbursements. Asset quality improved, with gross NPA ratio declining to 1.2%. The bank's <em>deposit mobilization</em> efforts led to a 12% increase in CASA deposits. Management attributed the results to prudent risk management and digital initiatives. The board recommended a final dividend of ₹19 per share. Analysts remain optimistic about HDFC Bank's growth prospects given its strong fundamentals and market leadership.".slice(
-        0,
-        250
-      ),
-    text: "HDFC Bank quarterly results show robust growth and asset quality.",
+      "HDFC Bank reported a <em>robust</em> quarterly performance with net profit rising 18% YoY. <em>Credit growth</em> remained strong at 16%, supported by healthy retail and corporate loan disbursements. Asset quality improved, with gross NPA ratio declining to 1.2%. The bank's <em>deposit mobilization</em> efforts led to a 12% increase in CASA deposits.",
+    relevance_score: 88,
   },
   {
-    id: 4,
-    company: "Infosys Ltd",
+    id: "4",
+    headline: "Infosys - IPO Prospectus",
+    company_name: "Infosys Ltd",
+    symbol: "INFY",
     industry: "Information Technology",
-    marketCap: "₹6,20,000 crore",
-    documentType: "Prospectus",
+    market_cap: "₹6,20,000 crore",
+    document_type: "prospectus",
+    source: "SEBI",
+    disclosure_date: "2024-01-20T11:20:00Z",
+    total_pages: 5,
+    file_size: 1536000,
+    prospectus_type: "ipo",
+    CIN: "L90911KA1981PLC004194",
+    critical_news: false,
+    audited: false,
+    revised: false,
+    standalone: false,
+    consolidated: false,
+    document_url: "https://example.com/prospectus.pdf",
+    company_url: "https://example.com/infosys",
     excerpt:
       "Strategic focus on automation and artificial intelligence capabilities to enhance client value proposition...",
-    date: "2024-01-20",
-    total_pages: 5,
-    relevanceScore: 85,
     highlight:
-      "Infosys's <em>prospectus</em> outlines its <em>strategic</em> focus on <em>automation</em> and <em>AI</em> to enhance client value. The company plans to invest in R&D, expand its global delivery centers, and strengthen partnerships with leading technology providers. Infosys aims to drive innovation through its AI-first approach, targeting new business opportunities in digital transformation, cloud, and cybersecurity. The document also highlights the company's commitment to sustainability and diversity, with initiatives to reduce carbon footprint and promote gender equality. Investors are optimistic about Infosys's long-term growth trajectory.".slice(
-        0,
-        250
-      ),
-    text: "Infosys prospectus highlights automation and AI.",
+      "Infosys's <em>prospectus</em> outlines its <em>strategic</em> focus on <em>automation</em> and <em>AI</em> to enhance client value. The company plans to invest in R&D, expand its global delivery centers, and strengthen partnerships with leading technology providers. Infosys aims to drive innovation through its AI-first approach, targeting new business opportunities in digital transformation, cloud, and cybersecurity.",
+    relevance_score: 85,
   },
   {
-    id: 5,
-    company: "ITC Ltd",
+    id: "5",
+    headline: "ITC - Annual Report FY24",
+    company_name: "ITC Ltd",
+    symbol: "ITC",
     industry: "FMCG",
-    marketCap: "₹4,80,000 crore",
-    documentType: "Annual Report",
+    market_cap: "₹4,80,000 crore",
+    document_type: "annual_report",
+    source: "BSE",
+    disclosure_date: "2024-02-15T13:45:00Z",
+    financial_year: 2024,
+    total_pages: 30,
+    file_size: 8192000,
+    CIN: "L15420WB1910PLC000003",
+    critical_news: false,
+    audited: true,
+    revised: false,
+    standalone: false,
+    consolidated: false,
+    document_url: "https://example.com/annual-report.pdf",
+    company_url: "https://example.com/itc",
     excerpt:
       "Diversification strategy across multiple business verticals showing positive momentum in non-cigarette segments...",
-    date: "2024-02-15",
-    total_pages: 30,
-    relevanceScore: 82,
     highlight:
-      "ITC's <em>annual report</em> details its <em>diversification</em> strategy across FMCG, hotels, agri, and paperboards. Non-cigarette FMCG revenues grew 14%, led by packaged foods and personal care. The company invested in digital supply chain and sustainability initiatives, reducing water consumption by 10%. ITC's hotel business saw a recovery in occupancy rates, while agri exports expanded to new markets. The report emphasizes ITC's commitment to value creation for stakeholders and responsible business practices. Analysts expect continued growth in non-cigarette segments.".slice(
-        0,
-        250
-      ),
-    text: "ITC annual report discusses diversification.",
+      "ITC's <em>annual report</em> details its <em>diversification</em> strategy across FMCG, hotels, agri, and paperboards. Non-cigarette FMCG revenues grew 14%, led by packaged foods and personal care. The company invested in digital supply chain and sustainability initiatives, reducing water consumption by 10%. ITC's hotel business saw a recovery in occupancy rates, while agri exports expanded to new markets.",
+    relevance_score: 82,
+  },
+  {
+    id: "6",
+    headline: "HDFC Bank - Investor Meet Presentation Q2 FY25",
+    company_name: "HDFC Bank Ltd",
+    symbol: "HDFCBANK",
+    industry: "Banking & Financial Services",
+    market_cap: "₹8,90,000 crore",
+    document_type: "presentation",
+    source: "Screener",
+    disclosure_date: "2024-07-15T10:30:00Z",
+    financial_period: "Q2FY25",
+    financial_period_range: { from: "2024-04-01", to: "2024-06-30" },
+    total_pages: 15,
+    file_size: 3072000,
+    event_type: "investor_meet",
+    critical_news: false,
+    audited: false,
+    revised: false,
+    standalone: false,
+    consolidated: false,
+    document_url: "https://example.com/presentation.pdf",
+    company_url: "https://example.com/hdfc-bank",
+    excerpt:
+      "Strategic initiatives and digital transformation roadmap presented to investors...",
+    highlight:
+      "HDFC Bank's <em>investor meet</em> presentation highlighted the bank's <em>strategic</em> initiatives in digital transformation and customer experience enhancement. The management outlined plans for expanding digital banking services, improving operational efficiency, and strengthening the bank's position in the competitive landscape. Key focus areas included <em>technology</em> investments, branch network optimization, and product innovation.",
+    relevance_score: 90,
   },
 ];
 
@@ -363,6 +414,14 @@ function getCountStr(name: string, arr: unknown[]): string {
   return `${count}`;
 }
 
+// Initialize dayjs plugins
+dayjs.extend(relativeTime);
+
+// Helper to format disclosure date using day.js
+function formatDisclosureDate(dateString: string): string {
+  return dayjs(dateString).format("MMM D, YYYY [at] h:mm A");
+}
+
 export default function KeywordSearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
@@ -384,6 +443,10 @@ export default function KeywordSearchPage() {
   const [docTypeSearch, setDocTypeSearch] = useState("");
   const [quarterSearch, setQuarterSearch] = useState("");
   const [marketCapSearch, setMarketCapSearch] = useState("");
+  const [disclosureDateRange, setDisclosureDateRange] = useState<{
+    from: Date | undefined;
+    to?: Date | undefined;
+  }>({ from: new Date(), to: undefined });
 
   const totalResults = 1247;
   const totalPages = Math.ceil(totalResults / pageSize);
@@ -483,7 +546,7 @@ export default function KeywordSearchPage() {
                   <div>
                     <h4 className="font-medium mb-2">Phrase Search</h4>
                     <code className="bg-gray-100 p-2 rounded text-sm block">
-                      "digital transformation"
+                      &quot;digital transformation&quot;
                     </code>
                     <p className="text-sm text-gray-600 mt-1">
                       Search for exact phrases
@@ -567,53 +630,71 @@ export default function KeywordSearchPage() {
               </div>
             )}
 
-            <div className="relative">
-              <Command className="rounded-lg border-2 border-gray-200 focus-within:border-blue-500">
-                <CommandInput
-                  placeholder={
-                    isAIMode
-                      ? "Enter keywords to filter documents for AI analysis..."
-                      : "Search for keywords, companies, or topics..."
-                  }
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() =>
-                    setTimeout(() => setIsSearchFocused(false), 200)
-                  }
-                  className="text-lg py-3"
-                />
-                {isSearchFocused &&
-                  (() => {
-                    const filteredSuggestions = searchSuggestions.filter(
-                      (suggestion) =>
-                        searchQuery.length === 0 ||
-                        suggestion
-                          .toLowerCase()
-                          .includes(searchQuery.toLowerCase())
-                    );
+            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 w-full">
+              <div className="flex-1 min-w-0">
+                <Label className="block text-xs font-medium text-gray-700 mb-1">
+                  Search Query
+                </Label>
+                <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
+                  <CommandInput
+                    placeholder={
+                      isAIMode
+                        ? "Enter keywords to filter documents for AI analysis..."
+                        : "Search for keywords, companies, or topics..."
+                    }
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() =>
+                      setTimeout(() => setIsSearchFocused(false), 200)
+                    }
+                    className="text-lg py-3"
+                  />
+                  {isSearchFocused &&
+                    (() => {
+                      const filteredSuggestions = searchSuggestions.filter(
+                        (suggestion) =>
+                          searchQuery.length === 0 ||
+                          suggestion
+                            .toLowerCase()
+                            .includes(searchQuery.toLowerCase())
+                      );
 
-                    return filteredSuggestions.length > 0 ? (
-                      <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
-                        <CommandGroup heading="Popular Searches">
-                          {filteredSuggestions.map((suggestion) => (
-                            <CommandItem
-                              key={suggestion}
-                              onSelect={() => {
-                                setSearchQuery(suggestion);
-                                setIsSearchFocused(false);
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <Search className="mr-2 h-4 w-4" />
-                              {suggestion}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    ) : null;
-                  })()}
-              </Command>
+                      return filteredSuggestions.length > 0 ? (
+                        <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
+                          <CommandGroup heading="Popular Searches">
+                            {filteredSuggestions.map((suggestion) => (
+                              <CommandItem
+                                key={suggestion}
+                                onSelect={() => {
+                                  setSearchQuery(suggestion);
+                                  setIsSearchFocused(false);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Search className="mr-2 h-4 w-4" />
+                                {suggestion}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      ) : null;
+                    })()}
+                </Command>
+              </div>
+              <div className="flex-shrink-0 w-full md:w-auto">
+                <Label className="block text-xs font-medium text-gray-700 mb-1">
+                  Disclosure Date
+                </Label>
+                <DateRangePicker
+                  date={disclosureDateRange}
+                  onDateChange={(date) =>
+                    setDisclosureDateRange(
+                      date || { from: new Date(), to: undefined }
+                    )
+                  }
+                />
+              </div>
             </div>
           </form>
         </div>
@@ -1102,8 +1183,8 @@ export default function KeywordSearchPage() {
                         <div className="bg-white rounded-lg p-4 border">
                           <p className="text-gray-700 leading-relaxed">
                             Based on the analysis of {totalResults} documents
-                            matching "{searchQuery}", I can provide the
-                            following insights regarding your question about{" "}
+                            matching &quot;{searchQuery}&quot;, I can provide
+                            the following insights regarding your question about{" "}
                             {aiQuestion.toLowerCase()}: Companies across various
                             sectors are showing strong momentum in digital
                             transformation initiatives, with particular focus on
@@ -1127,133 +1208,100 @@ export default function KeywordSearchPage() {
             {/* Results List */}
             <div className="space-y-4">
               {mockResults.map((result) => {
-                const isExchangeFiling =
-                  result.documentType === "Exchange Filing";
                 return (
                   <Card
                     key={result.id}
                     className="hover:shadow-md transition-shadow"
                   >
                     <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Title/Headline */}
-                          {isExchangeFiling && result.headline ? (
-                            <a
-                              href={result.attachmentname}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words"
-                            >
-                              {result.headline}
-                            </a>
-                          ) : (
-                            <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words">
-                              {result.company}
-                            </h3>
-                          )}
-                          {/* Company/Meta Row */}
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 mt-1">
-                            {isExchangeFiling ? (
-                              <>
-                                <a
-                                  href={result.nsurl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:underline font-medium"
-                                >
-                                  {result.issuer_name}
-                                </a>
-                                <span className="mx-1">•</span>
-                                <span>{result.scrip_id}</span>
-                                <span className="mx-1">•</span>
-                                <span>{result.industry}</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>{result.industry}</span>
-                                <span className="mx-1">•</span>
-                                <span>{result.marketCap}</span>
-                                <span className="mx-1">•</span>
-                                <span>{result.documentType}</span>
-                              </>
-                            )}
-                          </div>
-                          {/* Meta fields row (disclosure date, pages, etc.) */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+                      <div className="mb-3">
+                        {/* First Row - Date Info and Source Badge */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" /> Disclosure Date:{" "}
-                              {result.date}
+                              <Calendar className="w-3 h-3" />
+                              {formatDisclosureDate(result.disclosure_date)}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <FileIcon className="w-3 h-3" /> Pages:{" "}
-                              {result.total_pages}
-                            </span>
-                            {isExchangeFiling && (
-                              <>
-                                <span className="flex items-center gap-1">
-                                  <Tag className="w-3 h-3" /> Category:{" "}
-                                  {result.categoryname}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Folder className="w-3 h-3" /> Subcategory:{" "}
-                                  {result.subcatname}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Newspaper className="w-3 h-3" /> Subject:{" "}
-                                  {result.newssub}
-                                </span>
-                                {result.more && (
-                                  <span className="flex items-center gap-1">
-                                    {result.more}
-                                  </span>
-                                )}
-                              </>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs font-normal opacity-70"
+                          >
+                            {result.source}
+                          </Badge>
+                        </div>
+
+                        {/* Headline */}
+                        <a
+                          href={result.document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-2"
+                        >
+                          {result.headline}
+                        </a>
+
+                        {/* Company Info */}
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 mb-2">
+                          <a
+                            href={result.company_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline font-medium"
+                          >
+                            {result.company_name}
+                          </a>
+                          <span className="mx-1">•</span>
+                          <span>{result.symbol}</span>
+                          <span className="mx-1">•</span>
+                          <span>{result.industry}</span>
+                          <span className="mx-1">•</span>
+                          <span>{result.market_cap}</span>
+                        </div>
+
+                        {/* Document Meta Info - Only for Exchange Announcements */}
+                        {result.document_type === "exchange_filing" && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-3">
+                            {result.category && (
+                              <span className="flex items-center gap-1">
+                                <Tag className="w-3 h-3" /> Category:{" "}
+                                {result.category}
+                              </span>
+                            )}
+                            {result.subcategory && (
+                              <span className="flex items-center gap-1">
+                                <Folder className="w-3 h-3" /> Subcategory:{" "}
+                                {result.subcategory}
+                              </span>
+                            )}
+                            {result.subject && (
+                              <span className="flex items-center gap-1">
+                                <Newspaper className="w-3 h-3" /> Subject:{" "}
+                                {result.subject}
+                              </span>
                             )}
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end min-w-fit ml-4">
-                          <div className="flex items-center space-x-2">
-                            {!isExchangeFiling && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    View Document
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Download
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem>
-                                    <Building2 className="w-4 h-4 mr-2" />
-                                    More from{" "}
-                                    {isExchangeFiling
-                                      ? result.issuer_name
-                                      : result.company}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {result.date}
-                          </p>
-                        </div>
+                        )}
                       </div>
                       {/* Highlighted text for all result types */}
-                      <div
-                        className="mt-3 text-gray-800 text-sm leading-relaxed highlight-html"
-                        dangerouslySetInnerHTML={{
-                          __html: result.highlight || result.text,
-                        }}
-                      />
+                      <div className="mt-3 text-gray-800 text-sm leading-relaxed">
+                        {result.highlight
+                          .split(/<em>(.*?)<\/em>/)
+                          .map((part, index) => {
+                            if (index % 2 === 1) {
+                              // This is the highlighted content inside <em> tags
+                              return (
+                                <span
+                                  key={index}
+                                  className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
+                                >
+                                  {part}
+                                </span>
+                              );
+                            }
+                            return part;
+                          })}
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -1367,7 +1415,6 @@ export default function KeywordSearchPage() {
           </ul>
         </div>
       </div>
-      <style>{`.highlight-html em { background-color: #fef08a; font-weight: bold; border-radius: 0.2em; padding: 0 0.15em; }`}</style>
     </div>
   );
 }
