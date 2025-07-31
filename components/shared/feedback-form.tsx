@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ export function FeedbackForm() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackType, setFeedbackType] = useState<
     "positive" | "negative" | null
@@ -36,11 +38,13 @@ export function FeedbackForm() {
         {
           feedback_type: feedbackType,
           feedback_message: feedback,
+          user_email: email,
           url: `${process.env.NEXT_PUBLIC_BASE_URL}${pathname}`,
         },
         process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || ""
       );
       setFeedback("");
+      setEmail("");
       setIsOpen(false);
       toast({
         description:
@@ -97,6 +101,18 @@ export function FeedbackForm() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Email (optional)
+              </label>
+              <Input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="text-sm"
+              />
+            </div>
             <Textarea
               placeholder="Share your thoughts..."
               value={feedback}
