@@ -83,25 +83,15 @@ const mockResults = [
     document_type: "exchange_filing",
     source: "BSE",
     disclosure_date: "2024-03-15T14:30:00Z",
-    total_pages: 12,
-    file_size: 3408851,
     category: "Corporate Announcements",
     subcategory: "Investments",
     subject: "Investment in green energy",
-    critical_news: true,
-    audited: false,
-    revised: false,
-    standalone: false,
-    consolidated: false,
     document_url:
       "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=12345.pdf",
     company_url:
       "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500325",
-    excerpt:
-      "The company has shown strong performance in digital services and retail segments, with significant investments in renewable energy...",
     highlight:
       "Reliance <em>announces</em> a major investment in <em>renewables</em> as part of its long-term strategy. The board approved a plan to allocate ₹75,000 crore towards <em>green energy</em> projects, including solar, wind, and hydrogen. This move is expected to strengthen Reliance's position in the <em>sustainable energy</em> sector, drive innovation, and create new jobs.",
-    relevance_score: 95,
   },
   {
     id: "2",
@@ -113,23 +103,10 @@ const mockResults = [
     document_type: "transcript",
     source: "Screener",
     disclosure_date: "2024-02-28T16:45:00Z",
-    financial_period: "Q4FY24",
-    financial_period_range: { from: "2024-01-01", to: "2024-03-31" },
-    total_pages: 8,
-    file_size: 2048576,
-    event_type: "earnings_call",
-    critical_news: false,
-    audited: false,
-    revised: false,
-    standalone: false,
-    consolidated: false,
     document_url: "https://example.com/transcript.pdf",
     company_url: "https://example.com/tcs",
-    excerpt:
-      "Digital transformation initiatives continue to drive growth, with cloud services and AI solutions gaining traction...",
     highlight:
       "During the Q4 earnings call, TCS management emphasized the company's focus on <em>digital transformation</em> and cloud adoption. Revenue from <em>cloud services</em> grew by 22% YoY, driven by strong demand in North America and Europe. The CEO highlighted new client wins in the <em>AI</em> and automation space, noting that TCS is investing in upskilling its workforce to meet evolving client needs.",
-    relevance_score: 92,
   },
   {
     id: "3",
@@ -141,24 +118,12 @@ const mockResults = [
     document_type: "financial_result",
     source: "BSE",
     disclosure_date: "2024-03-10T09:15:00Z",
-    financial_period: "Q4FY24",
-    financial_period_range: { from: "2024-01-01", to: "2024-03-31" },
-    total_pages: 20,
-    file_size: 5120000,
-    critical_news: false,
-    audited: true,
-    revised: false,
-    standalone: true,
-    consolidated: true,
     document_url:
       "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=67890.pdf",
     company_url:
       "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500180",
-    excerpt:
-      "Credit growth remains robust with improved asset quality metrics and strong deposit mobilization...",
     highlight:
       "HDFC Bank reported a <em>robust</em> quarterly performance with net profit rising 18% YoY. <em>Credit growth</em> remained strong at 16%, supported by healthy retail and corporate loan disbursements. Asset quality improved, with gross NPA ratio declining to 1.2%. The bank's <em>deposit mobilization</em> efforts led to a 12% increase in CASA deposits.",
-    relevance_score: 88,
   },
   {
     id: "4",
@@ -170,22 +135,10 @@ const mockResults = [
     document_type: "prospectus",
     source: "SEBI",
     disclosure_date: "2024-01-20T11:20:00Z",
-    total_pages: 5,
-    file_size: 1536000,
-    prospectus_type: "ipo",
-    CIN: "L90911KA1981PLC004194",
-    critical_news: false,
-    audited: false,
-    revised: false,
-    standalone: false,
-    consolidated: false,
     document_url: "https://example.com/prospectus.pdf",
     company_url: "https://example.com/infosys",
-    excerpt:
-      "Strategic focus on automation and artificial intelligence capabilities to enhance client value proposition...",
     highlight:
       "Infosys's <em>prospectus</em> outlines its <em>strategic</em> focus on <em>automation</em> and <em>AI</em> to enhance client value. The company plans to invest in R&D, expand its global delivery centers, and strengthen partnerships with leading technology providers. Infosys aims to drive innovation through its AI-first approach, targeting new business opportunities in digital transformation, cloud, and cybersecurity.",
-    relevance_score: 85,
   },
   {
     id: "5",
@@ -197,22 +150,10 @@ const mockResults = [
     document_type: "annual_report",
     source: "BSE",
     disclosure_date: "2024-02-15T13:45:00Z",
-    financial_year: 2024,
-    total_pages: 30,
-    file_size: 8192000,
-    CIN: "L15420WB1910PLC000003",
-    critical_news: false,
-    audited: true,
-    revised: false,
-    standalone: false,
-    consolidated: false,
     document_url: "https://example.com/annual-report.pdf",
     company_url: "https://example.com/itc",
-    excerpt:
-      "Diversification strategy across multiple business verticals showing positive momentum in non-cigarette segments...",
     highlight:
       "ITC's <em>annual report</em> details its <em>diversification</em> strategy across FMCG, hotels, agri, and paperboards. Non-cigarette FMCG revenues grew 14%, led by packaged foods and personal care. The company invested in digital supply chain and sustainability initiatives, reducing water consumption by 10%. ITC's hotel business saw a recovery in occupancy rates, while agri exports expanded to new markets.",
-    relevance_score: 82,
   },
   {
     id: "6",
@@ -224,23 +165,10 @@ const mockResults = [
     document_type: "presentation",
     source: "Screener",
     disclosure_date: "2024-07-15T10:30:00Z",
-    financial_period: "Q2FY25",
-    financial_period_range: { from: "2024-04-01", to: "2024-06-30" },
-    total_pages: 15,
-    file_size: 3072000,
-    event_type: "investor_meet",
-    critical_news: false,
-    audited: false,
-    revised: false,
-    standalone: false,
-    consolidated: false,
     document_url: "https://example.com/presentation.pdf",
     company_url: "https://example.com/hdfc-bank",
-    excerpt:
-      "Strategic initiatives and digital transformation roadmap presented to investors...",
     highlight:
       "HDFC Bank's <em>investor meet</em> presentation highlighted the bank's <em>strategic</em> initiatives in digital transformation and customer experience enhancement. The management outlined plans for expanding digital banking services, improving operational efficiency, and strengthening the bank's position in the competitive landscape. Key focus areas included <em>technology</em> investments, branch network optimization, and product innovation.",
-    relevance_score: 90,
   },
 ];
 
