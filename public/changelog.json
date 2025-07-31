@@ -1,22 +1,38 @@
 {
   "updates": [
     {
+      "date": "2025-07-31",
+      "changes": [
+        {
+          "text": "Introduced '<b>Keyword Search</b>' across all filings",
+          "type": "New",
+          "link": "/keyword-search"
+        }
+      ]
+    },
+    {
       "date": "2025-07-01",
       "changes": [
         {
           "text": "<b>Homepage</b>: Added search functionality",
-          "type": "New"
+          "type": "New",
+          "link": null
         },
         {
           "text": "<b>Tabs</b>: Disabled selection when company data is unavailable",
-          "type": "Improved"
+          "type": "Improved",
+          "link": null
         }
       ]
     },
     {
       "date": "2025-06-27",
       "changes": [
-        { "text": "Introduced '<b>Key Regulations</b>' dataset", "type": "New" }
+        {
+          "text": "Introduced '<b>Key Regulations</b>' dataset",
+          "type": "New",
+          "link": null
+        }
       ]
     },
     {
@@ -24,14 +40,19 @@
       "changes": [
         {
           "text": "Introduced '<b>Business Structure</b>' dataset",
-          "type": "New"
+          "type": "New",
+          "link": null
         }
       ]
     },
     {
       "date": "2025-06-01",
       "changes": [
-        { "text": "Introduced '<b>Risk Factors</b>' dataset", "type": "New" }
+        {
+          "text": "Introduced '<b>Risk Factors</b>' dataset",
+          "type": "New",
+          "link": null
+        }
       ]
     }
   ]

@@ -8,10 +8,11 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Loader2, ListOrdered } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ChangelogUpdate {
   date: string;
-  changes: { text: string; type?: string }[];
+  changes: { text: string; type?: string; link?: string | null }[];
 }
 
 function ChangelogDropdown() {
@@ -19,6 +20,7 @@ function ChangelogDropdown() {
   const [loading, setLoading] = useState(false);
   const [unread, setUnread] = useState(false);
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const latestDate = updates?.[0]?.date;
   const LOCAL_KEY = "changelog_last_read";
   const hasChecked = useRef(false);
@@ -44,6 +46,17 @@ function ChangelogDropdown() {
     if (isOpen && latestDate) {
       localStorage.setItem(LOCAL_KEY, latestDate);
       setUnread(false);
+    }
+  }
+
+  function handleChangeClick(change: {
+    text: string;
+    type?: string;
+    link?: string | null;
+  }) {
+    if (change.link) {
+      setOpen(false);
+      router.push(change.link);
     }
   }
 
@@ -103,7 +116,12 @@ function ChangelogDropdown() {
                     {update.changes.map((change, i) => (
                       <li
                         key={i}
-                        className="flex items-start gap-2 rounded-md cursor-default px-0 py-1 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900"
+                        className={`flex items-start gap-2 rounded-md px-0 py-1 transition-colors ${
+                          change.link
+                            ? "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                            : "cursor-default"
+                        }`}
+                        onClick={() => change.link && handleChangeClick(change)}
                       >
                         <div className="flex items-start w-full">
                           {change.type && (
@@ -121,7 +139,11 @@ function ChangelogDropdown() {
                             </span>
                           )}
                           <span
-                            className="text-sm text-slate-700 dark:text-slate-200 leading-snug break-words flex-1 ml-3"
+                            className={`text-sm leading-snug break-words flex-1 ml-3 ${
+                              change.link
+                                ? "text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400"
+                                : "text-slate-700 dark:text-slate-200"
+                            }`}
                             dangerouslySetInnerHTML={{ __html: change.text }}
                           />
                         </div>
