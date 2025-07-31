@@ -50,6 +50,22 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
               </Badge>
             </div>
 
+            {/* Navigation Items */}
+            <nav className="hidden md:flex items-center gap-1 ml-8">
+              <Link
+                href="/DODLA/concall"
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+              >
+                Company Info
+              </Link>
+              <Link
+                href="/keyword-search"
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+              >
+                Keyword Search
+              </Link>
+            </nav>
+
             {/* Search in navbar */}
             <div className="flex-1 flex justify-center min-w-0">
               <CompanySearch sections={allSections} />

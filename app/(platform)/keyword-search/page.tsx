@@ -434,6 +434,9 @@ export default function KeywordSearchPage() {
   const [isAIMode, setIsAIMode] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // TODO: Enable AI Mode feature when ready
+  const showAIMode = false;
   const [pageSize, setPageSize] = useState(25);
   const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -511,16 +514,16 @@ export default function KeywordSearchPage() {
     selectedQuarters.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                 Keyword Search
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-slate-600 dark:text-slate-400 mt-1">
                 Search across exchange filings, earnings calls, and financial
                 documents
               </p>
@@ -545,37 +548,37 @@ export default function KeywordSearchPage() {
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-medium mb-2">Phrase Search</h4>
-                    <code className="bg-gray-100 p-2 rounded text-sm block">
+                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
                       &quot;digital transformation&quot;
                     </code>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                       Search for exact phrases
                     </p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Boolean Operators</h4>
-                    <code className="bg-gray-100 p-2 rounded text-sm block">
+                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
                       revenue AND growth OR profit
                     </code>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                       Combine terms with AND, OR, NOT
                     </p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Field-Specific Search</h4>
-                    <code className="bg-gray-100 p-2 rounded text-sm block">
+                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
                       company:reliance AND sector:energy
                     </code>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                       Search within specific document fields
                     </p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Wildcard Search</h4>
-                    <code className="bg-gray-100 p-2 rounded text-sm block">
+                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
                       technolog*
                     </code>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                       Use * for partial word matching
                     </p>
                   </div>
@@ -585,32 +588,36 @@ export default function KeywordSearchPage() {
           </div>
 
           {/* AI Mode Toggle */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="ai-mode"
-                checked={isAIMode}
-                onCheckedChange={setIsAIMode}
-              />
-              <Label
-                htmlFor="ai-mode"
-                className="text-sm font-medium flex items-center"
-              >
-                <Sparkles className="w-4 h-4 mr-1" />
-                AI Mode
-              </Label>
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-pointer" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Generate AI answers based on filtered search results</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          {showAIMode && (
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="ai-mode"
+                  checked={isAIMode}
+                  onCheckedChange={setIsAIMode}
+                />
+                <Label
+                  htmlFor="ai-mode"
+                  className="text-sm font-medium flex items-center"
+                >
+                  <Sparkles className="w-4 h-4 mr-1" />
+                  AI Mode
+                </Label>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="w-4 h-4 text-slate-400 dark:text-slate-500 cursor-pointer" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Generate AI answers based on filtered search results
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="relative space-y-4">
@@ -632,13 +639,13 @@ export default function KeywordSearchPage() {
 
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 w-full">
               <div className="flex-1 min-w-0">
-                <Label className="block text-xs font-medium text-gray-700 mb-1">
+                <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Search Query
                 </Label>
                 <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
                   <CommandInput
                     placeholder={
-                      isAIMode
+                      showAIMode && isAIMode
                         ? "Enter keywords to filter documents for AI analysis..."
                         : "Search for keywords, companies, or topics..."
                     }
@@ -683,7 +690,7 @@ export default function KeywordSearchPage() {
                 </Command>
               </div>
               <div className="flex-shrink-0 w-full md:w-auto">
-                <Label className="block text-xs font-medium text-gray-700 mb-1">
+                <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Disclosure Date
                 </Label>
                 <DateRangePicker
@@ -777,7 +784,7 @@ export default function KeywordSearchPage() {
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
                                   <span>{industry.name}</span>
-                                  <span className="text-gray-500">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     ({industry.count})
                                   </span>
                                 </label>
@@ -848,7 +855,7 @@ export default function KeywordSearchPage() {
                                   <span className="truncate">
                                     {company.name}
                                   </span>
-                                  <span className="text-gray-500">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     ({company.count})
                                   </span>
                                 </label>
@@ -919,7 +926,7 @@ export default function KeywordSearchPage() {
                                   <span className="truncate">
                                     {docType.name}
                                   </span>
-                                  <span className="text-gray-500">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     ({docType.count})
                                   </span>
                                 </label>
@@ -937,7 +944,7 @@ export default function KeywordSearchPage() {
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <HelpCircle className="ml-2 w-3.5 h-3.5 text-gray-400 cursor-pointer" />
+                              <HelpCircle className="ml-2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 cursor-pointer" />
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs text-xs">
                               The reporting period refers to the financial or
@@ -1002,7 +1009,7 @@ export default function KeywordSearchPage() {
                                   <span className="truncate">
                                     {quarter.name}
                                   </span>
-                                  <span className="text-gray-500">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     ({quarter.count})
                                   </span>
                                 </label>
@@ -1071,7 +1078,7 @@ export default function KeywordSearchPage() {
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
                                   <span>{range.label}</span>
-                                  <span className="text-gray-500">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     ({range.count})
                                   </span>
                                 </label>
@@ -1090,14 +1097,14 @@ export default function KeywordSearchPage() {
           <div className="lg:col-span-3">
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2">
-              <div className="text-gray-600 text-sm">
+              <div className="text-slate-600 dark:text-slate-400 text-sm">
                 Showing {(currentPage - 1) * pageSize + 1}-
                 {Math.min(currentPage * pageSize, totalResults)} of{" "}
                 {totalResults.toLocaleString()}
               </div>
               <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Sort by:
                   </span>
                   <Select value={sortBy} onValueChange={setSortBy}>
@@ -1121,7 +1128,7 @@ export default function KeywordSearchPage() {
                   </Select>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
                     Results per page:
                   </span>
                   <Select
@@ -1165,7 +1172,7 @@ export default function KeywordSearchPage() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
+                          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                             AI Answer
                           </h3>
                           <Badge variant="outline" className="text-xs">
@@ -1173,15 +1180,15 @@ export default function KeywordSearchPage() {
                           </Badge>
                         </div>
                         <div className="mb-3">
-                          <p className="text-sm text-gray-600 mb-1">
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
                             <strong>Question:</strong> {aiQuestion}
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
                             <strong>Keywords:</strong> {searchQuery}
                           </p>
                         </div>
                         <div className="bg-white rounded-lg p-4 border">
-                          <p className="text-gray-700 leading-relaxed">
+                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                             Based on the analysis of {totalResults} documents
                             matching &quot;{searchQuery}&quot;, I can provide
                             the following insights regarding your question about{" "}
@@ -1242,7 +1249,7 @@ export default function KeywordSearchPage() {
                         </a>
 
                         {/* Company Info */}
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mb-2">
                           <a
                             href={result.company_url}
                             target="_blank"
@@ -1284,7 +1291,7 @@ export default function KeywordSearchPage() {
                         )}
                       </div>
                       {/* Highlighted text for all result types */}
-                      <div className="mt-3 text-gray-800 text-sm leading-relaxed">
+                      <div className="mt-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
                         {result.highlight
                           .split(/<em>(.*?)<\/em>/)
                           .map((part, index) => {
