@@ -1,8 +1,7 @@
 "use client";
 
 import type React from "react";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -12,6 +11,8 @@ import {
   FileText,
   Info,
   Calendar,
+  HelpCircle,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +50,6 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-
 import { Label } from "@/components/ui/label";
 import {
   Tooltip,
@@ -57,7 +57,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
@@ -74,8 +73,11 @@ import {
   type FacetBucket,
 } from "@/lib/api/search";
 
-// Market cap range labels mapping
-const marketCapRanges = [
+// Initialize dayjs plugins
+dayjs.extend(relativeTime);
+
+// Constants
+const MARKET_CAP_RANGES = [
   { label: "Above ₹20,000 crore", count: 0, value: "above-20000" },
   { label: "₹5,000-20,000 crore", count: 0, value: "5000-20000" },
   { label: "₹500-5,000 crore", count: 0, value: "500-5000" },
@@ -83,7 +85,7 @@ const marketCapRanges = [
   { label: "Under ₹100 crore", count: 0, value: "under-100" },
 ];
 
-const searchSuggestions = [
+const SEARCH_SUGGESTIONS = [
   "digital transformation",
   "revenue growth",
   "market expansion",
@@ -101,195 +103,427 @@ const searchSuggestions = [
   "ESG reporting",
 ];
 
-// Helper to get count string for accordion title
-function getCountStr(name: string, arr: FacetBucket[]): string {
+const ADVANCED_SEARCH_EXAMPLES = [
+  {
+    title: "Phrase Search",
+    code: '"digital transformation"',
+    description: "Search for exact phrases",
+  },
+  {
+    title: "Boolean Operators",
+    code: "revenue AND growth OR profit",
+    description: "Combine terms with AND, OR, NOT",
+  },
+  {
+    title: "Field-Specific Search",
+    code: "company:reliance AND sector:energy",
+    description: "Search within specific document fields",
+  },
+  {
+    title: "Wildcard Search",
+    code: "technolog*",
+    description: "Use * for partial word matching",
+  },
+];
+
+const FILTER_ICONS = {
+  industry: Building2,
+  company: Building2,
+  documentType: FileText,
+  reportingPeriod: TrendingUp,
+  marketCap: TrendingUp,
+};
+
+// Helper functions
+const getCountStr = (name: string, arr: FacetBucket[]): string => {
   const count = arr.length;
-  if (["Industry", "Company"].includes(name))
-    return count >= 100 ? `${count}+` : `${count}`;
-  return `${count}`;
+  return ["Industry", "Company"].includes(name) && count >= 100
+    ? `${count}+`
+    : `${count}`;
+};
+
+const formatDisclosureDate = (dateString: string): string =>
+  dayjs(dateString).format("MMM D, YYYY [at] h:mm A");
+
+// Custom hooks
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Components
+interface FilterSectionProps {
+  title: string;
+  icon: React.ElementType;
+  items: FacetBucket[] | typeof MARKET_CAP_RANGES;
+  selectedItems: string[];
+  onToggle: (item: string) => void;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  accordionValue: string;
+  tooltip?: React.ReactNode;
 }
 
-// Initialize dayjs plugins
-dayjs.extend(relativeTime);
+const FilterSection: React.FC<FilterSectionProps> = ({
+  title,
+  icon: Icon,
+  items,
+  selectedItems,
+  onToggle,
+  searchValue,
+  onSearchChange,
+  accordionValue,
+  tooltip,
+}) => {
+  const filteredItems = useMemo(() => {
+    if (!searchValue) return items;
+    return items.filter((item) =>
+      ("key" in item ? item.key : item.label)
+        .toLowerCase()
+        .includes(searchValue.toLowerCase())
+    );
+  }, [items, searchValue]);
 
-// Helper to format disclosure date using day.js
-function formatDisclosureDate(dateString: string): string {
-  return dayjs(dateString).format("MMM D, YYYY [at] h:mm A");
+  const showSearch = items.length >= 10;
+  const hasNoResults = searchValue && filteredItems.length === 0;
+
+  return (
+    <AccordionItem value={accordionValue}>
+      <AccordionTrigger>
+        <span className="font-medium flex items-center">
+          <Icon className="w-4 h-4 mr-2" />
+          {title} ({getCountStr(title, items as FacetBucket[])})
+          {tooltip && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="ml-2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 cursor-pointer" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">
+                  {tooltip}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </span>
+      </AccordionTrigger>
+      <AccordionContent>
+        {showSearch && (
+          <Input
+            type="text"
+            placeholder={`Search ${title.toLowerCase()}...`}
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
+          />
+        )}
+        <ScrollArea className={accordionValue === "marketCap" ? "" : "h-48"}>
+          {hasNoResults ? (
+            <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
+              No matching {title} option with "{searchValue}". The filters show
+              only the <b>top 100 options</b> sorted by most matches. Please
+              fine-grain your search to yield a smaller set of {title} options.
+            </div>
+          ) : (
+            filteredItems
+              .filter((item) => ("key" in item ? item.key : item.value))
+              .map((item) => {
+                const key = "key" in item ? item.key : item.value;
+                const label = "key" in item ? item.key : item.label;
+                const count = "count" in item ? item.count : item.count;
+
+                return (
+                  <div key={key} className="flex items-center space-x-2 p-1">
+                    <Checkbox
+                      id={`${accordionValue}-${key}`}
+                      checked={selectedItems.includes(key)}
+                      onCheckedChange={() => onToggle(key)}
+                    />
+                    <label
+                      htmlFor={`${accordionValue}-${key}`}
+                      className="text-sm flex-1 cursor-pointer flex justify-between"
+                    >
+                      <span className="truncate">{label}</span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        ({count})
+                      </span>
+                    </label>
+                  </div>
+                );
+              })
+          )}
+        </ScrollArea>
+      </AccordionContent>
+    </AccordionItem>
+  );
+};
+
+interface SearchResultCardProps {
+  result: ReturnType<typeof transformSearchResult>;
 }
+
+const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
+  <Card className="hover:shadow-md transition-shadow">
+    <CardContent className="p-6">
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatDisclosureDate(result.disclosure_date)}
+            </span>
+          </div>
+          <div className="flex gap-1">
+            {result.sourceUrlPairs.map((pair, index) => (
+              <a
+                key={index}
+                href={pair.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="no-underline"
+              >
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-normal opacity-70 hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-all"
+                >
+                  {pair.source}
+                </Badge>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <a
+          href={result.document_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-1"
+        >
+          {result.company_name}
+          {(result.subcategory || result.category) &&
+            ` - ${result.subcategory || result.category}`}
+        </a>
+
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+          <a
+            href={result.company_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline font-medium"
+          >
+            {result.company_name}
+          </a>
+          <span className="mx-1">•</span>
+          <span>{result.symbol}</span>
+          <span className="mx-1">•</span>
+          <span>{result.industry}</span>
+          <span className="mx-1">•</span>
+          <span>{result.market_cap}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
+        {result.subject && (
+          <div className="mb-2 text-slate-600 dark:text-slate-400 text-xs">
+            <span className="font-medium">Subject:</span>{" "}
+            <u>{result.subject}</u>
+          </div>
+        )}
+        {result.highlight.split(/<em>(.*?)<\/em>/).map((part, index) =>
+          index % 2 === 1 ? (
+            <span
+              key={index}
+              className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
+            >
+              {part}
+            </span>
+          ) : (
+            part
+          )
+        )}
+      </div>
+    </CardContent>
+  </Card>
+);
 
 export default function KeywordSearchPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
-  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
-  const [selectedMarketCaps, setSelectedMarketCaps] = useState<string[]>([]);
-  const [selectedDocumentTypes, setSelectedDocumentTypes] = useState<string[]>(
-    []
+  // State management
+  const [searchState, setSearchState] = useState({
+    query: "",
+    isAIMode: false,
+    aiQuestion: "",
+    currentPage: 1,
+    pageSize: 25,
+    sortBy: "relevance",
+    isSearchFocused: false,
+    showAdvancedExamples: false,
+  });
+
+  const [filters, setFilters] = useState({
+    industries: [] as string[],
+    companies: [] as string[],
+    marketCaps: [] as string[],
+    documentTypes: [] as string[],
+    quarters: [] as string[],
+    dateRange: { from: undefined, to: undefined } as {
+      from: Date | undefined;
+      to?: Date | undefined;
+    },
+  });
+
+  const [filterSearches, setFilterSearches] = useState({
+    industry: "",
+    company: "",
+    docType: "",
+    quarter: "",
+    marketCap: "",
+  });
+
+  const [apiState, setApiState] = useState({
+    loading: false,
+    error: null as string | null,
+    response: null as SearchResponse | null,
+    facets: {
+      industries: [] as FacetBucket[],
+      companies: [] as FacetBucket[],
+      documentTypes: [] as FacetBucket[],
+      quarters: [] as FacetBucket[],
+    },
+  });
+
+  // Computed values
+  const totalResults = apiState.response?.total_count || 0;
+  const totalPages = apiState.response?.total_pages || 0;
+  const activeFiltersCount = Object.values(filters).reduce(
+    (count, filter) =>
+      count + (Array.isArray(filter) ? filter.length : filter.from ? 1 : 0),
+    0
   );
-  const [selectedQuarters, setSelectedQuarters] = useState<string[]>([]);
-  const [isAIMode, setIsAIMode] = useState(false);
-  const [aiQuestion, setAiQuestion] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [sortBy, setSortBy] = useState("relevance");
-  const [industrySearch, setIndustrySearch] = useState("");
-  const [companySearch, setCompanySearch] = useState("");
-  const [docTypeSearch, setDocTypeSearch] = useState("");
-  const [quarterSearch, setQuarterSearch] = useState("");
-  const [marketCapSearch, setMarketCapSearch] = useState("");
-  const [disclosureDateRange, setDisclosureDateRange] = useState<{
-    from: Date | undefined;
-    to?: Date | undefined;
-  }>({ from: undefined, to: undefined });
 
-  // API state
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(
-    null
+  // API calls
+  const performSearch = useCallback(
+    async (resetPage = false) => {
+      setApiState((prev) => ({ ...prev, loading: true, error: null }));
+
+      try {
+        const response = await searchDocuments({
+          query: searchState.query,
+          filters: {
+            industries: filters.industries,
+            companies: filters.companies,
+            market_cap_ranges: filters.marketCaps,
+            document_types: filters.documentTypes,
+            quarters: filters.quarters,
+            date_from: filters.dateRange.from?.toISOString().split("T")[0],
+            date_to: filters.dateRange.to?.toISOString().split("T")[0],
+          },
+          page: resetPage ? 1 : searchState.currentPage,
+          page_size: searchState.pageSize,
+          sort_by: searchState.sortBy as any,
+        });
+
+        setApiState((prev) => ({
+          ...prev,
+          response,
+          facets: {
+            industries: response.aggregations.industries,
+            companies: response.aggregations.companies,
+            documentTypes: response.aggregations.document_types,
+            quarters: response.aggregations.quarters,
+          },
+        }));
+
+        if (resetPage) {
+          setSearchState((prev) => ({ ...prev, currentPage: 1 }));
+        }
+      } catch (err) {
+        setApiState((prev) => ({
+          ...prev,
+          error: err instanceof Error ? err.message : "Search failed",
+        }));
+      } finally {
+        setApiState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [searchState, filters]
   );
-  const [industries, setIndustries] = useState<FacetBucket[]>([]);
-  const [companies, setCompanies] = useState<FacetBucket[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<FacetBucket[]>([]);
-  const [quarters, setQuarters] = useState<FacetBucket[]>([]);
 
-  // TODO: Enable AI Mode feature when ready
-  const showAIMode = false;
-
-  const totalResults = searchResponse?.total_count || 0;
-  const totalPages = searchResponse?.total_pages || 0;
-
-  const performSearch = async (resetPage = false) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await searchDocuments({
-        query: searchQuery,
-        filters: {
-          industries: selectedIndustries,
-          companies: selectedCompanies,
-          market_cap_ranges: selectedMarketCaps,
-          document_types: selectedDocumentTypes,
-          quarters: selectedQuarters,
-          date_from: disclosureDateRange.from?.toISOString().split("T")[0],
-          date_to: disclosureDateRange.to?.toISOString().split("T")[0],
-        },
-        page: resetPage ? 1 : currentPage,
-        page_size: pageSize,
-        sort_by: sortBy as
-          | "relevance"
-          | "date-desc"
-          | "date-asc"
-          | "company-asc"
-          | "company-desc",
-      });
-
-      console.log(response);
-
-      setSearchResponse(response);
-      if (resetPage) setCurrentPage(1);
-
-      // Update filter options from aggregations
-      setIndustries(response.aggregations.industries);
-      setCompanies(response.aggregations.companies);
-      setDocumentTypes(response.aggregations.document_types);
-      setQuarters(response.aggregations.quarters);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data load
+  // Effects
   useEffect(() => {
     performSearch();
   }, []);
 
-  // Search when filters change
   useEffect(() => {
-    if (searchResponse) {
-      // Only trigger after initial load
+    if (apiState.response) {
       performSearch(true);
     }
-  }, [
-    searchQuery,
-    selectedIndustries,
-    selectedCompanies,
-    selectedMarketCaps,
-    selectedDocumentTypes,
-    selectedQuarters,
-    disclosureDateRange,
-    sortBy,
-    pageSize,
-  ]);
+  }, [searchState.query, searchState.sortBy, searchState.pageSize, filters]);
 
-  // Page changes don't reset to page 1
   useEffect(() => {
-    if (searchResponse) {
+    if (apiState.response) {
       performSearch();
     }
-  }, [currentPage]);
+  }, [searchState.currentPage]);
 
+  // Event handlers
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(true);
   };
 
-  const toggleIndustryFilter = (industry: string) => {
-    setSelectedIndustries((prev) =>
-      prev.includes(industry)
-        ? prev.filter((i) => i !== industry)
-        : [...prev, industry]
-    );
-  };
-
-  const toggleCompanyFilter = (company: string) => {
-    setSelectedCompanies((prev) =>
-      prev.includes(company)
-        ? prev.filter((c) => c !== company)
-        : [...prev, company]
-    );
-  };
-
-  const toggleMarketCapFilter = (range: string) => {
-    setSelectedMarketCaps((prev) =>
-      prev.includes(range) ? prev.filter((r) => r !== range) : [...prev, range]
-    );
-  };
-
-  const toggleDocumentTypeFilter = (docType: string) => {
-    setSelectedDocumentTypes((prev) =>
-      prev.includes(docType)
-        ? prev.filter((d) => d !== docType)
-        : [...prev, docType]
-    );
-  };
-
-  const toggleQuarterFilter = (quarter: string) => {
-    setSelectedQuarters((prev) =>
-      prev.includes(quarter)
-        ? prev.filter((q) => q !== quarter)
-        : [...prev, quarter]
-    );
-  };
+  const toggleFilter = useCallback(
+    (filterType: keyof typeof filters, value: string) => {
+      setFilters((prev) => ({
+        ...prev,
+        [filterType]: prev[filterType].includes(value)
+          ? prev[filterType].filter((v) => v !== value)
+          : [...prev[filterType], value],
+      }));
+    },
+    []
+  );
 
   const clearAllFilters = () => {
-    setSelectedIndustries([]);
-    setSelectedCompanies([]);
-    setSelectedMarketCaps([]);
-    setSelectedDocumentTypes([]);
-    setSelectedQuarters([]);
+    setFilters({
+      industries: [],
+      companies: [],
+      marketCaps: [],
+      documentTypes: [],
+      quarters: [],
+      dateRange: { from: undefined, to: undefined },
+    });
   };
 
-  const activeFiltersCount =
-    selectedIndustries.length +
-    selectedCompanies.length +
-    selectedMarketCaps.length +
-    selectedDocumentTypes.length +
-    selectedQuarters.length;
+  const updateSearchState = useCallback(
+    (updates: Partial<typeof searchState>) => {
+      setSearchState((prev) => ({ ...prev, ...updates }));
+    },
+    []
+  );
+
+  const updateFilterSearch = useCallback(
+    (filter: keyof typeof filterSearches, value: string) => {
+      setFilterSearches((prev) => ({ ...prev, [filter]: value }));
+    },
+    []
+  );
+
+  // Render helpers
+  const filteredSuggestions = useMemo(
+    () =>
+      searchState.query.length === 0
+        ? SEARCH_SUGGESTIONS
+        : SEARCH_SUGGESTIONS.filter((s) =>
+            s.toLowerCase().includes(searchState.query.toLowerCase())
+          ),
+    [searchState.query]
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -307,8 +541,10 @@ export default function KeywordSearchPage() {
               </p>
             </div>
             <Dialog
-              open={showAdvancedExamples}
-              onOpenChange={setShowAdvancedExamples}
+              open={searchState.showAdvancedExamples}
+              onOpenChange={(open) =>
+                updateSearchState({ showAdvancedExamples: open })
+              }
             >
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -324,97 +560,24 @@ export default function KeywordSearchPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium mb-2">Phrase Search</h4>
-                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                      &quot;digital transformation&quot;
-                    </code>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Search for exact phrases
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">Boolean Operators</h4>
-                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                      revenue AND growth OR profit
-                    </code>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Combine terms with AND, OR, NOT
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">Field-Specific Search</h4>
-                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                      company:reliance AND sector:energy
-                    </code>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Search within specific document fields
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">Wildcard Search</h4>
-                    <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                      technolog*
-                    </code>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Use * for partial word matching
-                    </p>
-                  </div>
+                  {ADVANCED_SEARCH_EXAMPLES.map((example) => (
+                    <div key={example.title}>
+                      <h4 className="font-medium mb-2">{example.title}</h4>
+                      <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
+                        {example.code}
+                      </code>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {example.description}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </DialogContent>
             </Dialog>
           </div>
 
-          {/* AI Mode Toggle */}
-          {showAIMode && (
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="ai-mode"
-                  checked={isAIMode}
-                  onCheckedChange={setIsAIMode}
-                />
-                <Label
-                  htmlFor="ai-mode"
-                  className="text-sm font-medium flex items-center"
-                >
-                  <Sparkles className="w-4 h-4 mr-1" />
-                  AI Mode
-                </Label>
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="w-4 h-4 text-slate-400 dark:text-slate-500 cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        Generate AI answers based on filtered search results
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          )}
-
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="relative space-y-4">
-            {isAIMode && (
-              <div className="space-y-2">
-                <Label htmlFor="ai-question" className="text-sm font-medium">
-                  What would you like to know?
-                </Label>
-                <textarea
-                  id="ai-question"
-                  placeholder="Ask a specific question about the search results..."
-                  value={aiQuestion}
-                  onChange={(e) => setAiQuestion(e.target.value)}
-                  className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                />
-              </div>
-            )}
-
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 w-full">
               <div className="flex-1 min-w-0">
                 <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -422,49 +585,42 @@ export default function KeywordSearchPage() {
                 </Label>
                 <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
                   <CommandInput
-                    placeholder={
-                      showAIMode && isAIMode
-                        ? "Enter keywords to filter documents for AI analysis..."
-                        : "Search for keywords, companies, or topics..."
+                    placeholder="Search for keywords, companies, or topics..."
+                    value={searchState.query}
+                    onValueChange={(value) =>
+                      updateSearchState({ query: value })
                     }
-                    value={searchQuery}
-                    onValueChange={setSearchQuery}
-                    onFocus={() => setIsSearchFocused(true)}
+                    onFocus={() => updateSearchState({ isSearchFocused: true })}
                     onBlur={() =>
-                      setTimeout(() => setIsSearchFocused(false), 200)
+                      setTimeout(
+                        () => updateSearchState({ isSearchFocused: false }),
+                        200
+                      )
                     }
                     className="text-lg py-3"
                   />
-                  {isSearchFocused &&
-                    (() => {
-                      const filteredSuggestions = searchSuggestions.filter(
-                        (suggestion) =>
-                          searchQuery.length === 0 ||
-                          suggestion
-                            .toLowerCase()
-                            .includes(searchQuery.toLowerCase())
-                      );
-
-                      return filteredSuggestions.length > 0 ? (
-                        <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
-                          <CommandGroup heading="Popular Searches">
-                            {filteredSuggestions.map((suggestion) => (
-                              <CommandItem
-                                key={suggestion}
-                                onSelect={() => {
-                                  setSearchQuery(suggestion);
-                                  setIsSearchFocused(false);
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <Search className="mr-2 h-4 w-4" />
-                                {suggestion}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      ) : null;
-                    })()}
+                  {searchState.isSearchFocused &&
+                    filteredSuggestions.length > 0 && (
+                      <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
+                        <CommandGroup heading="Popular Searches">
+                          {filteredSuggestions.map((suggestion) => (
+                            <CommandItem
+                              key={suggestion}
+                              onSelect={() => {
+                                updateSearchState({
+                                  query: suggestion,
+                                  isSearchFocused: false,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Search className="mr-2 h-4 w-4" />
+                              {suggestion}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    )}
                 </Command>
               </div>
               <div className="flex-shrink-0 w-full md:w-auto">
@@ -472,11 +628,12 @@ export default function KeywordSearchPage() {
                   Disclosure Date
                 </Label>
                 <DateRangePicker
-                  date={disclosureDateRange}
+                  date={filters.dateRange}
                   onDateChange={(date) =>
-                    setDisclosureDateRange(
-                      date || { from: new Date(), to: undefined }
-                    )
+                    setFilters((prev) => ({
+                      ...prev,
+                      dateRange: date || { from: undefined, to: undefined },
+                    }))
                   }
                 />
               </div>
@@ -488,7 +645,7 @@ export default function KeywordSearchPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filters Sidebar - 30% */}
+          {/* Filters Sidebar */}
           <div className="lg:col-span-1">
             <Card>
               <CardContent>
@@ -503,365 +660,96 @@ export default function KeywordSearchPage() {
                     "marketCap",
                   ]}
                 >
-                  {/* Industry Filter */}
-                  <AccordionItem value="industry">
-                    <AccordionTrigger>
-                      <span className="font-medium flex items-center">
-                        <Building2 className="w-4 h-4 mr-2" /> Industry (
-                        {getCountStr("Industry", industries)})
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {industries.length >= 10 && (
-                        <Input
-                          type="text"
-                          placeholder="Search industry..."
-                          value={industrySearch}
-                          onChange={(e) => setIndustrySearch(e.target.value)}
-                          className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                        />
-                      )}
-                      <ScrollArea className="h-48">
-                        {(() => {
-                          const filtered = industrySearch
-                            ? industries.filter((i) =>
-                                i.key
-                                  .toLowerCase()
-                                  .includes(industrySearch.toLowerCase())
-                              )
-                            : industries;
-                          if (industrySearch && filtered.length === 0) {
-                            return (
-                              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                                No matching Industry option with &quot;
-                                {industrySearch}&quot;. The filters show only
-                                the <b>top 100 options</b> sorted by most
-                                matches. Please fine-grain your search to yield
-                                a smaller set of Industry options.
-                              </div>
-                            );
-                          }
-                          return filtered
-                            .filter((i) => i.key)
-                            .map((industry) => (
-                              <div
-                                key={industry.key}
-                                className="flex items-center space-x-2 p-1"
-                              >
-                                <Checkbox
-                                  id={`industry-${industry.key}`}
-                                  checked={selectedIndustries.includes(
-                                    industry.key
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleIndustryFilter(industry.key)
-                                  }
-                                />
-                                <label
-                                  htmlFor={`industry-${industry.key}`}
-                                  className="text-sm flex-1 cursor-pointer flex justify-between"
-                                >
-                                  <span>{industry.key}</span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    ({industry.count})
-                                  </span>
-                                </label>
-                              </div>
-                            ));
-                        })()}
-                      </ScrollArea>
-                    </AccordionContent>
-                  </AccordionItem>
-                  {/* Company Filter */}
-                  <AccordionItem value="company">
-                    <AccordionTrigger>
-                      <span className="font-medium flex items-center">
-                        <Building2 className="w-4 h-4 mr-2" /> Company (
-                        {getCountStr("Company", companies)})
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {companies.length >= 10 && (
-                        <Input
-                          type="text"
-                          placeholder="Search company..."
-                          value={companySearch}
-                          onChange={(e) => setCompanySearch(e.target.value)}
-                          className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                        />
-                      )}
-                      <ScrollArea className="h-48">
-                        {(() => {
-                          const filtered = companySearch
-                            ? companies.filter((c) =>
-                                c.key
-                                  .toLowerCase()
-                                  .includes(companySearch.toLowerCase())
-                              )
-                            : companies;
-                          if (companySearch && filtered.length === 0) {
-                            return (
-                              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                                No matching Company option with &quot;
-                                {companySearch}&quot;. The filters show only the{" "}
-                                <b>top 100 options</b> sorted by most matches.
-                                Please fine-grain your search to yield a smaller
-                                set of Company options.
-                              </div>
-                            );
-                          }
-                          return filtered
-                            .filter((c) => c.key)
-                            .map((company) => (
-                              <div
-                                key={company.key}
-                                className="flex items-center space-x-2 p-1"
-                              >
-                                <Checkbox
-                                  id={`company-${company.key}`}
-                                  checked={selectedCompanies.includes(
-                                    company.key
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleCompanyFilter(company.key)
-                                  }
-                                />
-                                <label
-                                  htmlFor={`company-${company.key}`}
-                                  className="text-sm flex-1 cursor-pointer flex justify-between"
-                                >
-                                  <span className="truncate">
-                                    {company.key}
-                                  </span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    ({company.count})
-                                  </span>
-                                </label>
-                              </div>
-                            ));
-                        })()}
-                      </ScrollArea>
-                    </AccordionContent>
-                  </AccordionItem>
-                  {/* Document Type Filter */}
-                  <AccordionItem value="documentType">
-                    <AccordionTrigger>
-                      <span className="font-medium flex items-center">
-                        <FileText className="w-4 h-4 mr-2" /> Document Type (
-                        {getCountStr("Document Type", documentTypes)})
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {documentTypes.length >= 10 && (
-                        <Input
-                          type="text"
-                          placeholder="Search document type..."
-                          value={docTypeSearch}
-                          onChange={(e) => setDocTypeSearch(e.target.value)}
-                          className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                        />
-                      )}
-                      <ScrollArea>
-                        {(() => {
-                          const filtered = docTypeSearch
-                            ? documentTypes.filter((d) =>
-                                d.key
-                                  .toLowerCase()
-                                  .includes(docTypeSearch.toLowerCase())
-                              )
-                            : documentTypes;
-                          if (docTypeSearch && filtered.length === 0) {
-                            return (
-                              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                                No matching Document Type option with &quot;
-                                {docTypeSearch}&quot;. The filters show only the{" "}
-                                <b>top 100 options</b> sorted by most matches.
-                                Please fine-grain your search to yield a smaller
-                                set of Document Type options.
-                              </div>
-                            );
-                          }
-                          return filtered
-                            .filter((d) => d.key)
-                            .map((docType) => (
-                              <div
-                                key={docType.key}
-                                className="flex items-center space-x-2 p-1"
-                              >
-                                <Checkbox
-                                  id={`doctype-${docType.key}`}
-                                  checked={selectedDocumentTypes.includes(
-                                    docType.key
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleDocumentTypeFilter(docType.key)
-                                  }
-                                />
-                                <label
-                                  htmlFor={`doctype-${docType.key}`}
-                                  className="text-sm flex-1 cursor-pointer flex justify-between"
-                                >
-                                  <span className="truncate">
-                                    {docType.key}
-                                  </span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    ({docType.count})
-                                  </span>
-                                </label>
-                              </div>
-                            ));
-                        })()}
-                      </ScrollArea>
-                    </AccordionContent>
-                  </AccordionItem>
-                  {/* Reporting Period Filter */}
-                  <AccordionItem value="reportingPeriod">
-                    <AccordionTrigger>
-                      <span className="font-medium flex items-center">
-                        <TrendingUp className="w-4 h-4 mr-2" /> Reporting Period
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="ml-2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 cursor-pointer" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs text-xs">
-                              The reporting period refers to the financial or
-                              event period (e.g., quarter, half-year, year) that
-                              a document such as earnings, concalls, or filings
-                              pertains to.
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {quarters.length >= 10 && (
-                        <Input
-                          type="text"
-                          placeholder="Search reporting period..."
-                          value={quarterSearch}
-                          onChange={(e) => setQuarterSearch(e.target.value)}
-                          className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                        />
-                      )}
-                      <ScrollArea className="h-48">
-                        {(() => {
-                          const filtered = quarterSearch
-                            ? quarters.filter((q) =>
-                                q.key
-                                  .toLowerCase()
-                                  .includes(quarterSearch.toLowerCase())
-                              )
-                            : quarters;
-                          if (quarterSearch && filtered.length === 0) {
-                            return (
-                              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                                No matching Reporting Period option with &quot;
-                                {quarterSearch}&quot;. The filters show only the{" "}
-                                <b>top 100 options</b> sorted by most matches.
-                                Please fine-grain your search to yield a smaller
-                                set of Reporting Period options.
-                              </div>
-                            );
-                          }
-                          return filtered
-                            .filter((q) => q.key)
-                            .map((quarter) => (
-                              <div
-                                key={quarter.key}
-                                className="flex items-center space-x-2 p-1"
-                              >
-                                <Checkbox
-                                  id={`quarter-${quarter.key}`}
-                                  checked={selectedQuarters.includes(
-                                    quarter.key
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleQuarterFilter(quarter.key)
-                                  }
-                                />
-                                <label
-                                  htmlFor={`quarter-${quarter.key}`}
-                                  className="text-sm flex-1 cursor-pointer flex justify-between"
-                                >
-                                  <span className="truncate">
-                                    {quarter.key}
-                                  </span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    ({quarter.count})
-                                  </span>
-                                </label>
-                              </div>
-                            ));
-                        })()}
-                      </ScrollArea>
-                    </AccordionContent>
-                  </AccordionItem>
-                  {/* Market Cap Filter */}
-                  <AccordionItem value="marketCap">
-                    <AccordionTrigger>
-                      <span className="font-medium flex items-center">
-                        <TrendingUp className="w-4 h-4 mr-2" /> Market Cap (
-                        {marketCapRanges.length})
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      {marketCapRanges.length >= 10 && (
-                        <Input
-                          type="text"
-                          placeholder="Search market cap..."
-                          value={marketCapSearch}
-                          onChange={(e) => setMarketCapSearch(e.target.value)}
-                          className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
-                        />
-                      )}
-                      <ScrollArea>
-                        {marketCapRanges.map((range) => (
-                          <div
-                            key={range.value}
-                            className="flex items-center space-x-2 p-1"
-                          >
-                            <Checkbox
-                              id={`marketcap-${range.value}`}
-                              checked={selectedMarketCaps.includes(range.value)}
-                              onCheckedChange={() =>
-                                toggleMarketCapFilter(range.value)
-                              }
-                            />
-                            <label
-                              htmlFor={`marketcap-${range.value}`}
-                              className="text-sm flex-1 cursor-pointer flex justify-between"
-                            >
-                              <span>{range.label}</span>
-                              <span className="text-slate-500 dark:text-slate-400">
-                                ({range.count})
-                              </span>
-                            </label>
-                          </div>
-                        ))}
-                      </ScrollArea>
-                    </AccordionContent>
-                  </AccordionItem>
+                  <FilterSection
+                    title="Industry"
+                    icon={FILTER_ICONS.industry}
+                    items={apiState.facets.industries}
+                    selectedItems={filters.industries}
+                    onToggle={(item) => toggleFilter("industries", item)}
+                    searchValue={filterSearches.industry}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("industry", value)
+                    }
+                    accordionValue="industry"
+                  />
+                  <FilterSection
+                    title="Company"
+                    icon={FILTER_ICONS.company}
+                    items={apiState.facets.companies}
+                    selectedItems={filters.companies}
+                    onToggle={(item) => toggleFilter("companies", item)}
+                    searchValue={filterSearches.company}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("company", value)
+                    }
+                    accordionValue="company"
+                  />
+                  <FilterSection
+                    title="Document Type"
+                    icon={FILTER_ICONS.documentType}
+                    items={apiState.facets.documentTypes}
+                    selectedItems={filters.documentTypes}
+                    onToggle={(item) => toggleFilter("documentTypes", item)}
+                    searchValue={filterSearches.docType}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("docType", value)
+                    }
+                    accordionValue="documentType"
+                  />
+                  <FilterSection
+                    title="Reporting Period"
+                    icon={FILTER_ICONS.reportingPeriod}
+                    items={apiState.facets.quarters}
+                    selectedItems={filters.quarters}
+                    onToggle={(item) => toggleFilter("quarters", item)}
+                    searchValue={filterSearches.quarter}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("quarter", value)
+                    }
+                    accordionValue="reportingPeriod"
+                    tooltip="The reporting period refers to the financial or event period (e.g., quarter, half-year, year) that a document such as earnings, concalls, or filings pertains to."
+                  />
+                  <FilterSection
+                    title="Market Cap"
+                    icon={FILTER_ICONS.marketCap}
+                    items={MARKET_CAP_RANGES}
+                    selectedItems={filters.marketCaps}
+                    onToggle={(item) => toggleFilter("marketCaps", item)}
+                    searchValue={filterSearches.marketCap}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("marketCap", value)
+                    }
+                    accordionValue="marketCap"
+                  />
                 </Accordion>
               </CardContent>
             </Card>
           </div>
 
-          {/* Search Results - 70% */}
+          {/* Search Results */}
           <div className="lg:col-span-3">
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2">
               <div className="text-slate-600 dark:text-slate-400 text-sm">
-                Showing {(currentPage - 1) * pageSize + 1}-
-                {Math.min(currentPage * pageSize, totalResults)} of{" "}
-                {totalResults.toLocaleString()}
+                Showing{" "}
+                {(searchState.currentPage - 1) * searchState.pageSize + 1}-
+                {Math.min(
+                  searchState.currentPage * searchState.pageSize,
+                  totalResults
+                )}{" "}
+                of {totalResults.toLocaleString()}
               </div>
               <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center space-x-3">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Sort by:
                   </span>
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <Select
+                    value={searchState.sortBy}
+                    onValueChange={(value) =>
+                      updateSearchState({ sortBy: value })
+                    }
+                  >
                     <SelectTrigger className="w-auto min-w-[10.5rem] max-w-[16rem]">
                       <SelectValue />
                     </SelectTrigger>
@@ -886,8 +774,10 @@ export default function KeywordSearchPage() {
                     Results per page:
                   </span>
                   <Select
-                    value={pageSize.toString()}
-                    onValueChange={(value) => setPageSize(Number(value))}
+                    value={searchState.pageSize.toString()}
+                    onValueChange={(value) =>
+                      updateSearchState({ pageSize: Number(value) })
+                    }
                   >
                     <SelectTrigger className="w-20">
                       <SelectValue />
@@ -913,61 +803,8 @@ export default function KeywordSearchPage() {
               </div>
             )}
 
-            {/* AI Answer Section */}
-            {isAIMode && aiQuestion && searchQuery && (
-              <div className="mb-6">
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-blue-600" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                            AI Answer
-                          </h3>
-                          <Badge variant="outline" className="text-xs">
-                            Based on {totalResults} filtered results
-                          </Badge>
-                        </div>
-                        <div className="mb-3">
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                            <strong>Question:</strong> {aiQuestion}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            <strong>Keywords:</strong> {searchQuery}
-                          </p>
-                        </div>
-                        <div className="bg-white rounded-lg p-4 border">
-                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                            Based on the analysis of {totalResults} documents
-                            matching &quot;{searchQuery}&quot;, I can provide
-                            the following insights regarding your question about{" "}
-                            {aiQuestion.toLowerCase()}: Companies across various
-                            sectors are showing strong momentum in digital
-                            transformation initiatives, with particular focus on
-                            cloud services and AI integration. The data
-                            indicates a 23% increase in technology investments
-                            compared to previous quarters, with major players
-                            like Reliance Industries and TCS leading the
-                            adoption curve. Revenue growth patterns suggest that
-                            companies prioritizing digital infrastructure are
-                            outperforming their peers by an average of 15% in
-                            market performance.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
             {/* Loading State */}
-            {loading && (
+            {apiState.loading && (
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <span className="ml-2 text-slate-600">Searching...</span>
@@ -975,119 +812,21 @@ export default function KeywordSearchPage() {
             )}
 
             {/* Error State */}
-            {error && (
+            {apiState.error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-                <strong>Search Error:</strong> {error}
+                <strong>Search Error:</strong> {apiState.error}
               </div>
             )}
 
             {/* Results List */}
-            {!loading && !error && (
+            {!apiState.loading && !apiState.error && (
               <div className="space-y-4">
-                {searchResponse?.results.map((result) => {
-                  const transformedResult = transformSearchResult(result);
-                  return (
-                    <Card
-                      key={transformedResult.id}
-                      className="hover:shadow-md transition-shadow"
-                    >
-                      <CardContent className="p-6">
-                        <div className="mb-4">
-                          {/* First Row - Date Info and Source Badges */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {formatDisclosureDate(
-                                  transformedResult.disclosure_date
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex gap-1">
-                              {transformedResult.sourceUrlPairs.map(
-                                (pair, index) => (
-                                  <a
-                                    key={index}
-                                    href={pair.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="no-underline"
-                                  >
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs font-normal opacity-70 hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-all"
-                                    >
-                                      {pair.source}
-                                    </Badge>
-                                  </a>
-                                )
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Headline */}
-                          <a
-                            href={transformedResult.document_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-1"
-                          >
-                            {transformedResult.company_name}
-                            {(transformedResult.subcategory ||
-                              transformedResult.category) &&
-                              ` - ${
-                                transformedResult.subcategory ||
-                                transformedResult.category
-                              }`}
-                          </a>
-
-                          {/* Company Info */}
-                          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                            <a
-                              href={transformedResult.company_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:underline font-medium"
-                            >
-                              {transformedResult.company_name}
-                            </a>
-                            <span className="mx-1">•</span>
-                            <span>{transformedResult.symbol}</span>
-                            <span className="mx-1">•</span>
-                            <span>{transformedResult.industry}</span>
-                            <span className="mx-1">•</span>
-                            <span>{transformedResult.market_cap}</span>
-                          </div>
-                        </div>
-                        {/* Highlighted text for all result types */}
-                        <div className="mt-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
-                          {transformedResult.subject && (
-                            <div className="mb-2 text-slate-600 dark:text-slate-400 text-xs">
-                              <span className="font-medium">Subject:</span>{" "}
-                              <u>{transformedResult.subject}</u>
-                            </div>
-                          )}
-                          {transformedResult.highlight
-                            .split(/<em>(.*?)<\/em>/)
-                            .map((part: string, index: number) => {
-                              if (index % 2 === 1) {
-                                // This is the highlighted content inside <em> tags
-                                return (
-                                  <span
-                                    key={index}
-                                    className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
-                                  >
-                                    {part}
-                                  </span>
-                                );
-                              }
-                              return part;
-                            })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {apiState.response?.results.map((result) => (
+                  <SearchResultCard
+                    key={result.document_id}
+                    result={transformSearchResult(result)}
+                  />
+                ))}
               </div>
             )}
 
@@ -1100,10 +839,14 @@ export default function KeywordSearchPage() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        if (currentPage > 1) setCurrentPage(currentPage - 1);
+                        if (searchState.currentPage > 1) {
+                          updateSearchState({
+                            currentPage: searchState.currentPage - 1,
+                          });
+                        }
                       }}
                       className={
-                        currentPage === 1
+                        searchState.currentPage === 1
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -1118,9 +861,9 @@ export default function KeywordSearchPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            setCurrentPage(page);
+                            updateSearchState({ currentPage: page });
                           }}
-                          isActive={currentPage === page}
+                          isActive={searchState.currentPage === page}
                           className="cursor-pointer"
                         >
                           {page}
@@ -1139,7 +882,7 @@ export default function KeywordSearchPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            setCurrentPage(totalPages);
+                            updateSearchState({ currentPage: totalPages });
                           }}
                           className="cursor-pointer"
                         >
@@ -1154,11 +897,14 @@ export default function KeywordSearchPage() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        if (currentPage < totalPages)
-                          setCurrentPage(currentPage + 1);
+                        if (searchState.currentPage < totalPages) {
+                          updateSearchState({
+                            currentPage: searchState.currentPage + 1,
+                          });
+                        }
                       }}
                       className={
-                        currentPage === totalPages
+                        searchState.currentPage === totalPages
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -1170,6 +916,8 @@ export default function KeywordSearchPage() {
           </div>
         </div>
       </div>
+
+      {/* Footer Notes */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="bg-muted/50 border border-muted rounded-lg p-4 text-sm text-muted-foreground">
           <div className="font-semibold mb-2">Notes:</div>
