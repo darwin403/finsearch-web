@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -12,9 +12,6 @@ import {
   FileText,
   Info,
   Calendar,
-  Tag,
-  Folder,
-  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,250 +67,20 @@ import {
 } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import {
+  searchDocuments,
+  transformSearchResult,
+  type SearchResponse,
+  type FacetBucket,
+} from "@/lib/api/search";
 
-// Normalized mock data for demonstration
-const mockResults = [
-  {
-    id: "1",
-    headline: "Reliance Industries - Board Intimation",
-    company_name: "Reliance Industries Ltd",
-    symbol: "RELIANCE",
-    industry: "Oil & Gas",
-    market_cap: "₹18,50,000 crore",
-    document_type: "exchange_filing",
-    source: "BSE",
-    disclosure_date: "2024-03-15T14:30:00Z",
-    category: "Corporate Announcements",
-    subcategory: "Investments",
-    subject: "Investment in green energy",
-    document_url:
-      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=12345.pdf",
-    company_url:
-      "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500325",
-    highlight:
-      "Reliance <em>announces</em> a major investment in <em>renewables</em> as part of its long-term strategy. The board approved a plan to allocate ₹75,000 crore towards <em>green energy</em> projects, including solar, wind, and hydrogen. This move is expected to strengthen Reliance's position in the <em>sustainable energy</em> sector, drive innovation, and create new jobs.",
-  },
-  {
-    id: "2",
-    headline: "TCS - Earnings Call Transcript Q4 FY24",
-    company_name: "Tata Consultancy Services",
-    symbol: "TCS",
-    industry: "Information Technology",
-    market_cap: "₹12,80,000 crore",
-    document_type: "transcript",
-    source: "Screener",
-    disclosure_date: "2024-02-28T16:45:00Z",
-    document_url: "https://example.com/transcript.pdf",
-    company_url: "https://example.com/tcs",
-    highlight:
-      "During the Q4 earnings call, TCS management emphasized the company's focus on <em>digital transformation</em> and cloud adoption. Revenue from <em>cloud services</em> grew by 22% YoY, driven by strong demand in North America and Europe. The CEO highlighted new client wins in the <em>AI</em> and automation space, noting that TCS is investing in upskilling its workforce to meet evolving client needs.",
-  },
-  {
-    id: "3",
-    headline: "HDFC Bank - Financial Result Q4 FY24",
-    company_name: "HDFC Bank Ltd",
-    symbol: "HDFCBANK",
-    industry: "Banking & Financial Services",
-    market_cap: "₹8,90,000 crore",
-    document_type: "financial_result",
-    source: "BSE",
-    disclosure_date: "2024-03-10T09:15:00Z",
-    document_url:
-      "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=67890.pdf",
-    company_url:
-      "https://www.bseindia.com/stockinfo/scrips.aspx?scripcd=500180",
-    highlight:
-      "HDFC Bank reported a <em>robust</em> quarterly performance with net profit rising 18% YoY. <em>Credit growth</em> remained strong at 16%, supported by healthy retail and corporate loan disbursements. Asset quality improved, with gross NPA ratio declining to 1.2%. The bank's <em>deposit mobilization</em> efforts led to a 12% increase in CASA deposits.",
-  },
-  {
-    id: "4",
-    headline: "Infosys - IPO Prospectus",
-    company_name: "Infosys Ltd",
-    symbol: "INFY",
-    industry: "Information Technology",
-    market_cap: "₹6,20,000 crore",
-    document_type: "prospectus",
-    source: "SEBI",
-    disclosure_date: "2024-01-20T11:20:00Z",
-    document_url: "https://example.com/prospectus.pdf",
-    company_url: "https://example.com/infosys",
-    highlight:
-      "Infosys's <em>prospectus</em> outlines its <em>strategic</em> focus on <em>automation</em> and <em>AI</em> to enhance client value. The company plans to invest in R&D, expand its global delivery centers, and strengthen partnerships with leading technology providers. Infosys aims to drive innovation through its AI-first approach, targeting new business opportunities in digital transformation, cloud, and cybersecurity.",
-  },
-  {
-    id: "5",
-    headline: "ITC - Annual Report FY24",
-    company_name: "ITC Ltd",
-    symbol: "ITC",
-    industry: "FMCG",
-    market_cap: "₹4,80,000 crore",
-    document_type: "annual_report",
-    source: "BSE",
-    disclosure_date: "2024-02-15T13:45:00Z",
-    document_url: "https://example.com/annual-report.pdf",
-    company_url: "https://example.com/itc",
-    highlight:
-      "ITC's <em>annual report</em> details its <em>diversification</em> strategy across FMCG, hotels, agri, and paperboards. Non-cigarette FMCG revenues grew 14%, led by packaged foods and personal care. The company invested in digital supply chain and sustainability initiatives, reducing water consumption by 10%. ITC's hotel business saw a recovery in occupancy rates, while agri exports expanded to new markets.",
-  },
-  {
-    id: "6",
-    headline: "HDFC Bank - Investor Meet Presentation Q2 FY25",
-    company_name: "HDFC Bank Ltd",
-    symbol: "HDFCBANK",
-    industry: "Banking & Financial Services",
-    market_cap: "₹8,90,000 crore",
-    document_type: "presentation",
-    source: "Screener",
-    disclosure_date: "2024-07-15T10:30:00Z",
-    document_url: "https://example.com/presentation.pdf",
-    company_url: "https://example.com/hdfc-bank",
-    highlight:
-      "HDFC Bank's <em>investor meet</em> presentation highlighted the bank's <em>strategic</em> initiatives in digital transformation and customer experience enhancement. The management outlined plans for expanding digital banking services, improving operational efficiency, and strengthening the bank's position in the competitive landscape. Key focus areas included <em>technology</em> investments, branch network optimization, and product innovation.",
-  },
-];
-
-const industries = [
-  { name: "Information Technology", count: 245 },
-  { name: "Banking & Financial Services", count: 189 },
-  { name: "Oil & Gas", count: 156 },
-  { name: "FMCG", count: 134 },
-  { name: "Pharmaceuticals", count: 98 },
-  { name: "Automotive", count: 87 },
-  { name: "Metals & Mining", count: 76 },
-  { name: "Telecommunications", count: 65 },
-  { name: "Textiles", count: 54 },
-  { name: "Chemicals", count: 49 },
-  { name: "Cement", count: 45 },
-  { name: "Power", count: 42 },
-  { name: "Infrastructure", count: 40 },
-  { name: "Real Estate", count: 38 },
-  { name: "Media & Entertainment", count: 36 },
-  { name: "Retail", count: 34 },
-  { name: "Logistics", count: 32 },
-  { name: "Hospitality", count: 30 },
-  { name: "Healthcare", count: 29 },
-  { name: "Insurance", count: 28 },
-  { name: "Consumer Durables", count: 27 },
-  { name: "Aerospace & Defense", count: 26 },
-  { name: "Agriculture", count: 25 },
-  { name: "Construction", count: 24 },
-  { name: "Shipping", count: 23 },
-  { name: "Education", count: 22 },
-  { name: "Tourism", count: 21 },
-  { name: "Beverages", count: 20 },
-  { name: "Food Processing", count: 19 },
-  { name: "Paper", count: 18 },
-  { name: "Plastic Products", count: 17 },
-  { name: "Electronics", count: 16 },
-  { name: "IT Services", count: 15 },
-  { name: "Biotechnology", count: 14 },
-  { name: "Mining", count: 13 },
-  { name: "Paints & Pigments", count: 12 },
-  { name: "Jewellery", count: 11 },
-  { name: "Leather", count: 10 },
-  { name: "Sugar", count: 9 },
-  { name: "Trading", count: 8 },
-  { name: "Consulting", count: 7 },
-  { name: "Engineering", count: 6 },
-  { name: "Printing & Publishing", count: 5 },
-  { name: "Sports", count: 4 },
-  { name: "Aviation", count: 3 },
-  { name: "Marine", count: 2 },
-  { name: "Others", count: 1 },
-  { name: "Renewable Energy", count: 50 },
-  { name: "E-commerce", count: 48 },
-  { name: "Fintech", count: 47 },
-  { name: "Semiconductors", count: 46 },
-];
-
-const companies = [
-  { name: "Reliance Industries Ltd", count: 45 },
-  { name: "Tata Consultancy Services", count: 38 },
-  { name: "HDFC Bank Ltd", count: 32 },
-  { name: "Infosys Ltd", count: 29 },
-  { name: "ITC Ltd", count: 25 },
-  { name: "Hindustan Unilever Ltd", count: 22 },
-  { name: "State Bank of India", count: 19 },
-  { name: "Bharti Airtel Ltd", count: 17 },
-  { name: "Larsen & Toubro Ltd", count: 16 },
-  { name: "ICICI Bank Ltd", count: 15 },
-  { name: "Kotak Mahindra Bank", count: 14 },
-  { name: "Axis Bank Ltd", count: 13 },
-  { name: "Maruti Suzuki India Ltd", count: 12 },
-  { name: "Bajaj Finance Ltd", count: 11 },
-  { name: "Asian Paints Ltd", count: 10 },
-  { name: "Nestle India Ltd", count: 9 },
-  { name: "UltraTech Cement Ltd", count: 8 },
-  { name: "Sun Pharmaceutical Industries", count: 7 },
-  { name: "HCL Technologies Ltd", count: 6 },
-  { name: "Wipro Ltd", count: 5 },
-  { name: "Power Grid Corporation", count: 4 },
-  { name: "NTPC Ltd", count: 3 },
-  { name: "Tata Steel Ltd", count: 2 },
-  { name: "JSW Steel Ltd", count: 1 },
-  { name: "Britannia Industries Ltd", count: 20 },
-  { name: "Divi's Laboratories Ltd", count: 19 },
-  { name: "Adani Enterprises Ltd", count: 18 },
-  { name: "Pidilite Industries Ltd", count: 17 },
-  { name: "Havells India Ltd", count: 16 },
-  { name: "Godrej Consumer Products", count: 15 },
-  { name: "Cipla Ltd", count: 14 },
-  { name: "Bajaj Auto Ltd", count: 13 },
-  { name: "Tata Motors Ltd", count: 12 },
-  { name: "Grasim Industries Ltd", count: 11 },
-  { name: "Shree Cement Ltd", count: 10 },
-  { name: "IndusInd Bank Ltd", count: 9 },
-  { name: "Dr. Reddy's Laboratories", count: 8 },
-  { name: "Eicher Motors Ltd", count: 7 },
-  { name: "Hero MotoCorp Ltd", count: 6 },
-  { name: "Coal India Ltd", count: 5 },
-  { name: "Bharat Petroleum Corp", count: 4 },
-  { name: "Indian Oil Corporation", count: 3 },
-  { name: "Zee Entertainment Enterprises", count: 2 },
-  { name: "DLF Ltd", count: 1 },
-  { name: "Motherson Sumi Systems", count: 21 },
-  { name: "GAIL (India) Ltd", count: 22 },
-  { name: "Tata Power Company Ltd", count: 23 },
-  { name: "Bank of Baroda", count: 24 },
-  { name: "Punjab National Bank", count: 25 },
-  { name: "Canara Bank", count: 26 },
-  { name: "Union Bank of India", count: 27 },
-  { name: "IDFC First Bank", count: 28 },
-  { name: "SBI Life Insurance", count: 29 },
-  { name: "ICICI Prudential Life", count: 30 },
-];
-
+// Market cap range labels mapping
 const marketCapRanges = [
-  { label: "Above ₹20,000 crore", count: 45, value: "above-20000" },
-  { label: "₹5,000-20,000 crore", count: 128, value: "5000-20000" },
-  { label: "₹500-5,000 crore", count: 342, value: "500-5000" },
-  { label: "₹100-500 crore", count: 567, value: "100-500" },
-  { label: "Under ₹100 crore", count: 234, value: "under-100" },
-];
-
-const documentTypes = [
-  { name: "Exchange Filings", count: 456 },
-  { name: "Annual Reports", count: 234 },
-  { name: "Earnings Transcript", count: 189 },
-  { name: "Investor Presentation", count: 123 },
-  { name: "Prospectus", count: 67 },
-];
-
-const quarters = [
-  { name: "2025 Q2", count: 45 },
-  { name: "2025 Q1", count: 78 },
-  { name: "2024 Q4", count: 89 },
-  { name: "2024 Q3", count: 156 },
-  { name: "2024 Q2", count: 234 },
-  { name: "2024 Q1", count: 198 },
-  { name: "2023 Q4", count: 145 },
-  { name: "2023 Q3", count: 167 },
-  { name: "2023 Q2", count: 189 },
-  { name: "2023 Q1", count: 156 },
-  { name: "2024 H2", count: 245 },
-  { name: "2024 H1", count: 432 },
-  { name: "2023 H2", count: 312 },
-  { name: "2023 H1", count: 289 },
+  { label: "Above ₹20,000 crore", count: 0, value: "above-20000" },
+  { label: "₹5,000-20,000 crore", count: 0, value: "5000-20000" },
+  { label: "₹500-5,000 crore", count: 0, value: "500-5000" },
+  { label: "₹100-500 crore", count: 0, value: "100-500" },
+  { label: "Under ₹100 crore", count: 0, value: "under-100" },
 ];
 
 const searchSuggestions = [
@@ -335,7 +102,7 @@ const searchSuggestions = [
 ];
 
 // Helper to get count string for accordion title
-function getCountStr(name: string, arr: unknown[]): string {
+function getCountStr(name: string, arr: FacetBucket[]): string {
   const count = arr.length;
   if (["Industry", "Company"].includes(name))
     return count >= 100 ? `${count}+` : `${count}`;
@@ -362,9 +129,6 @@ export default function KeywordSearchPage() {
   const [isAIMode, setIsAIMode] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-  // TODO: Enable AI Mode feature when ready
-  const showAIMode = false;
   const [pageSize, setPageSize] = useState(25);
   const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -377,15 +141,101 @@ export default function KeywordSearchPage() {
   const [disclosureDateRange, setDisclosureDateRange] = useState<{
     from: Date | undefined;
     to?: Date | undefined;
-  }>({ from: new Date(), to: undefined });
+  }>({ from: undefined, to: undefined });
 
-  const totalResults = 1247;
-  const totalPages = Math.ceil(totalResults / pageSize);
+  // API state
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(
+    null
+  );
+  const [industries, setIndustries] = useState<FacetBucket[]>([]);
+  const [companies, setCompanies] = useState<FacetBucket[]>([]);
+  const [documentTypes, setDocumentTypes] = useState<FacetBucket[]>([]);
+  const [quarters, setQuarters] = useState<FacetBucket[]>([]);
+
+  // TODO: Enable AI Mode feature when ready
+  const showAIMode = false;
+
+  const totalResults = searchResponse?.total_count || 0;
+  const totalPages = searchResponse?.total_pages || 0;
+
+  const performSearch = async (resetPage = false) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await searchDocuments({
+        query: searchQuery,
+        filters: {
+          industries: selectedIndustries,
+          companies: selectedCompanies,
+          market_cap_ranges: selectedMarketCaps,
+          document_types: selectedDocumentTypes,
+          quarters: selectedQuarters,
+          date_from: disclosureDateRange.from?.toISOString().split("T")[0],
+          date_to: disclosureDateRange.to?.toISOString().split("T")[0],
+        },
+        page: resetPage ? 1 : currentPage,
+        page_size: pageSize,
+        sort_by: sortBy as
+          | "relevance"
+          | "date-desc"
+          | "date-asc"
+          | "company-asc"
+          | "company-desc",
+      });
+
+      console.log(response);
+
+      setSearchResponse(response);
+      if (resetPage) setCurrentPage(1);
+
+      // Update filter options from aggregations
+      setIndustries(response.aggregations.industries);
+      setCompanies(response.aggregations.companies);
+      setDocumentTypes(response.aggregations.document_types);
+      setQuarters(response.aggregations.quarters);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data load
+  useEffect(() => {
+    performSearch();
+  }, []);
+
+  // Search when filters change
+  useEffect(() => {
+    if (searchResponse) {
+      // Only trigger after initial load
+      performSearch(true);
+    }
+  }, [
+    searchQuery,
+    selectedIndustries,
+    selectedCompanies,
+    selectedMarketCaps,
+    selectedDocumentTypes,
+    selectedQuarters,
+    disclosureDateRange,
+    sortBy,
+    pageSize,
+  ]);
+
+  // Page changes don't reset to page 1
+  useEffect(() => {
+    if (searchResponse) {
+      performSearch();
+    }
+  }, [currentPage]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setCurrentPage(1);
-    // Implement search logic here
+    performSearch(true);
   };
 
   const toggleIndustryFilter = (industry: string) => {
@@ -675,7 +525,7 @@ export default function KeywordSearchPage() {
                         {(() => {
                           const filtered = industrySearch
                             ? industries.filter((i) =>
-                                i.name
+                                i.key
                                   .toLowerCase()
                                   .includes(industrySearch.toLowerCase())
                               )
@@ -692,26 +542,26 @@ export default function KeywordSearchPage() {
                             );
                           }
                           return filtered
-                            .filter((i) => i.name)
+                            .filter((i) => i.key)
                             .map((industry) => (
                               <div
-                                key={industry.name}
+                                key={industry.key}
                                 className="flex items-center space-x-2 p-1"
                               >
                                 <Checkbox
-                                  id={`industry-${industry.name}`}
+                                  id={`industry-${industry.key}`}
                                   checked={selectedIndustries.includes(
-                                    industry.name
+                                    industry.key
                                   )}
                                   onCheckedChange={() =>
-                                    toggleIndustryFilter(industry.name)
+                                    toggleIndustryFilter(industry.key)
                                   }
                                 />
                                 <label
-                                  htmlFor={`industry-${industry.name}`}
+                                  htmlFor={`industry-${industry.key}`}
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
-                                  <span>{industry.name}</span>
+                                  <span>{industry.key}</span>
                                   <span className="text-slate-500 dark:text-slate-400">
                                     ({industry.count})
                                   </span>
@@ -744,7 +594,7 @@ export default function KeywordSearchPage() {
                         {(() => {
                           const filtered = companySearch
                             ? companies.filter((c) =>
-                                c.name
+                                c.key
                                   .toLowerCase()
                                   .includes(companySearch.toLowerCase())
                               )
@@ -761,27 +611,27 @@ export default function KeywordSearchPage() {
                             );
                           }
                           return filtered
-                            .filter((c) => c.name)
+                            .filter((c) => c.key)
                             .map((company) => (
                               <div
-                                key={company.name}
+                                key={company.key}
                                 className="flex items-center space-x-2 p-1"
                               >
                                 <Checkbox
-                                  id={`company-${company.name}`}
+                                  id={`company-${company.key}`}
                                   checked={selectedCompanies.includes(
-                                    company.name
+                                    company.key
                                   )}
                                   onCheckedChange={() =>
-                                    toggleCompanyFilter(company.name)
+                                    toggleCompanyFilter(company.key)
                                   }
                                 />
                                 <label
-                                  htmlFor={`company-${company.name}`}
+                                  htmlFor={`company-${company.key}`}
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
                                   <span className="truncate">
-                                    {company.name}
+                                    {company.key}
                                   </span>
                                   <span className="text-slate-500 dark:text-slate-400">
                                     ({company.count})
@@ -815,7 +665,7 @@ export default function KeywordSearchPage() {
                         {(() => {
                           const filtered = docTypeSearch
                             ? documentTypes.filter((d) =>
-                                d.name
+                                d.key
                                   .toLowerCase()
                                   .includes(docTypeSearch.toLowerCase())
                               )
@@ -832,27 +682,27 @@ export default function KeywordSearchPage() {
                             );
                           }
                           return filtered
-                            .filter((d) => d.name)
+                            .filter((d) => d.key)
                             .map((docType) => (
                               <div
-                                key={docType.name}
+                                key={docType.key}
                                 className="flex items-center space-x-2 p-1"
                               >
                                 <Checkbox
-                                  id={`doctype-${docType.name}`}
+                                  id={`doctype-${docType.key}`}
                                   checked={selectedDocumentTypes.includes(
-                                    docType.name
+                                    docType.key
                                   )}
                                   onCheckedChange={() =>
-                                    toggleDocumentTypeFilter(docType.name)
+                                    toggleDocumentTypeFilter(docType.key)
                                   }
                                 />
                                 <label
-                                  htmlFor={`doctype-${docType.name}`}
+                                  htmlFor={`doctype-${docType.key}`}
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
                                   <span className="truncate">
-                                    {docType.name}
+                                    {docType.key}
                                   </span>
                                   <span className="text-slate-500 dark:text-slate-400">
                                     ({docType.count})
@@ -898,7 +748,7 @@ export default function KeywordSearchPage() {
                         {(() => {
                           const filtered = quarterSearch
                             ? quarters.filter((q) =>
-                                q.name
+                                q.key
                                   .toLowerCase()
                                   .includes(quarterSearch.toLowerCase())
                               )
@@ -915,27 +765,27 @@ export default function KeywordSearchPage() {
                             );
                           }
                           return filtered
-                            .filter((q) => q.name)
+                            .filter((q) => q.key)
                             .map((quarter) => (
                               <div
-                                key={quarter.name}
+                                key={quarter.key}
                                 className="flex items-center space-x-2 p-1"
                               >
                                 <Checkbox
-                                  id={`quarter-${quarter.name}`}
+                                  id={`quarter-${quarter.key}`}
                                   checked={selectedQuarters.includes(
-                                    quarter.name
+                                    quarter.key
                                   )}
                                   onCheckedChange={() =>
-                                    toggleQuarterFilter(quarter.name)
+                                    toggleQuarterFilter(quarter.key)
                                   }
                                 />
                                 <label
-                                  htmlFor={`quarter-${quarter.name}`}
+                                  htmlFor={`quarter-${quarter.key}`}
                                   className="text-sm flex-1 cursor-pointer flex justify-between"
                                 >
                                   <span className="truncate">
-                                    {quarter.name}
+                                    {quarter.key}
                                   </span>
                                   <span className="text-slate-500 dark:text-slate-400">
                                     ({quarter.count})
@@ -952,7 +802,7 @@ export default function KeywordSearchPage() {
                     <AccordionTrigger>
                       <span className="font-medium flex items-center">
                         <TrendingUp className="w-4 h-4 mr-2" /> Market Cap (
-                        {getCountStr("Market Cap", marketCapRanges)})
+                        {marketCapRanges.length})
                       </span>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -966,53 +816,29 @@ export default function KeywordSearchPage() {
                         />
                       )}
                       <ScrollArea>
-                        {(() => {
-                          const filtered = marketCapSearch
-                            ? marketCapRanges.filter((r) =>
-                                r.label
-                                  .toLowerCase()
-                                  .includes(marketCapSearch.toLowerCase())
-                              )
-                            : marketCapRanges;
-                          if (marketCapSearch && filtered.length === 0) {
-                            return (
-                              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-                                No matching Market Cap option with &quot;
-                                {marketCapSearch}&quot;. The filters show only
-                                the <b>top 100 options</b> sorted by most
-                                matches. Please fine-grain your search to yield
-                                a smaller set of Market Cap options.
-                              </div>
-                            );
-                          }
-                          return filtered
-                            .filter((r) => r.label)
-                            .map((range) => (
-                              <div
-                                key={range.value}
-                                className="flex items-center space-x-2 p-1"
-                              >
-                                <Checkbox
-                                  id={`marketcap-${range.value}`}
-                                  checked={selectedMarketCaps.includes(
-                                    range.value
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleMarketCapFilter(range.value)
-                                  }
-                                />
-                                <label
-                                  htmlFor={`marketcap-${range.value}`}
-                                  className="text-sm flex-1 cursor-pointer flex justify-between"
-                                >
-                                  <span>{range.label}</span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    ({range.count})
-                                  </span>
-                                </label>
-                              </div>
-                            ));
-                        })()}
+                        {marketCapRanges.map((range) => (
+                          <div
+                            key={range.value}
+                            className="flex items-center space-x-2 p-1"
+                          >
+                            <Checkbox
+                              id={`marketcap-${range.value}`}
+                              checked={selectedMarketCaps.includes(range.value)}
+                              onCheckedChange={() =>
+                                toggleMarketCapFilter(range.value)
+                              }
+                            />
+                            <label
+                              htmlFor={`marketcap-${range.value}`}
+                              className="text-sm flex-1 cursor-pointer flex justify-between"
+                            >
+                              <span>{range.label}</span>
+                              <span className="text-slate-500 dark:text-slate-400">
+                                ({range.count})
+                              </span>
+                            </label>
+                          </div>
+                        ))}
                       </ScrollArea>
                     </AccordionContent>
                   </AccordionItem>
@@ -1140,108 +966,130 @@ export default function KeywordSearchPage() {
               </div>
             )}
 
+            {/* Loading State */}
+            {loading && (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-slate-600">Searching...</span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+                <strong>Search Error:</strong> {error}
+              </div>
+            )}
+
             {/* Results List */}
-            <div className="space-y-4">
-              {mockResults.map((result) => {
-                return (
-                  <Card
-                    key={result.id}
-                    className="hover:shadow-md transition-shadow"
-                  >
-                    <CardContent className="p-6">
-                      <div className="mb-3">
-                        {/* First Row - Date Info and Source Badge */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDisclosureDate(result.disclosure_date)}
-                            </span>
+            {!loading && !error && (
+              <div className="space-y-4">
+                {searchResponse?.results.map((result) => {
+                  const transformedResult = transformSearchResult(result);
+                  return (
+                    <Card
+                      key={transformedResult.id}
+                      className="hover:shadow-md transition-shadow"
+                    >
+                      <CardContent className="p-6">
+                        <div className="mb-4">
+                          {/* First Row - Date Info and Source Badges */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {formatDisclosureDate(
+                                  transformedResult.disclosure_date
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              {transformedResult.sourceUrlPairs.map(
+                                (pair, index) => (
+                                  <a
+                                    key={index}
+                                    href={pair.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="no-underline"
+                                  >
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs font-normal opacity-70 hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-all"
+                                    >
+                                      {pair.source}
+                                    </Badge>
+                                  </a>
+                                )
+                              )}
+                            </div>
                           </div>
-                          <Badge
-                            variant="secondary"
-                            className="text-xs font-normal opacity-70"
-                          >
-                            {result.source}
-                          </Badge>
-                        </div>
 
-                        {/* Headline */}
-                        <a
-                          href={result.document_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-2"
-                        >
-                          {result.headline}
-                        </a>
-
-                        {/* Company Info */}
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mb-2">
+                          {/* Headline */}
                           <a
-                            href={result.company_url}
+                            href={transformedResult.document_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:underline font-medium"
+                            className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-1"
                           >
-                            {result.company_name}
+                            {transformedResult.company_name}
+                            {(transformedResult.subcategory ||
+                              transformedResult.category) &&
+                              ` - ${
+                                transformedResult.subcategory ||
+                                transformedResult.category
+                              }`}
                           </a>
-                          <span className="mx-1">•</span>
-                          <span>{result.symbol}</span>
-                          <span className="mx-1">•</span>
-                          <span>{result.industry}</span>
-                          <span className="mx-1">•</span>
-                          <span>{result.market_cap}</span>
-                        </div>
 
-                        {/* Document Meta Info - Only for Exchange Announcements */}
-                        {result.document_type === "exchange_filing" && (
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-3">
-                            {result.category && (
-                              <span className="flex items-center gap-1">
-                                <Tag className="w-3 h-3" /> Category:{" "}
-                                {result.category}
-                              </span>
-                            )}
-                            {result.subcategory && (
-                              <span className="flex items-center gap-1">
-                                <Folder className="w-3 h-3" /> Subcategory:{" "}
-                                {result.subcategory}
-                              </span>
-                            )}
-                            {result.subject && (
-                              <span className="flex items-center gap-1">
-                                <Newspaper className="w-3 h-3" /> Subject:{" "}
-                                {result.subject}
-                              </span>
-                            )}
+                          {/* Company Info */}
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <a
+                              href={transformedResult.company_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline font-medium"
+                            >
+                              {transformedResult.company_name}
+                            </a>
+                            <span className="mx-1">•</span>
+                            <span>{transformedResult.symbol}</span>
+                            <span className="mx-1">•</span>
+                            <span>{transformedResult.industry}</span>
+                            <span className="mx-1">•</span>
+                            <span>{transformedResult.market_cap}</span>
                           </div>
-                        )}
-                      </div>
-                      {/* Highlighted text for all result types */}
-                      <div className="mt-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
-                        {result.highlight
-                          .split(/<em>(.*?)<\/em>/)
-                          .map((part, index) => {
-                            if (index % 2 === 1) {
-                              // This is the highlighted content inside <em> tags
-                              return (
-                                <span
-                                  key={index}
-                                  className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
-                                >
-                                  {part}
-                                </span>
-                              );
-                            }
-                            return part;
-                          })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                        </div>
+                        {/* Highlighted text for all result types */}
+                        <div className="mt-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
+                          {transformedResult.subject && (
+                            <div className="mb-2 text-slate-600 dark:text-slate-400 text-xs">
+                              <span className="font-medium">Subject:</span>{" "}
+                              <u>{transformedResult.subject}</u>
+                            </div>
+                          )}
+                          {transformedResult.highlight
+                            .split(/<em>(.*?)<\/em>/)
+                            .map((part: string, index: number) => {
+                              if (index % 2 === 1) {
+                                // This is the highlighted content inside <em> tags
+                                return (
+                                  <span
+                                    key={index}
+                                    className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
+                                  >
+                                    {part}
+                                  </span>
+                                );
+                              }
+                              return part;
+                            })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Pagination */}
             <div className="mt-8">
