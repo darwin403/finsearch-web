@@ -160,7 +160,7 @@ export default function OverviewPage() {
     const fetchData = async () => {
       try {
         const response = await fetch(
-          `${config.api_v2.baseUrl}/mda/?symbol=${symbol}`
+          `${config.api.baseUrl}/mda/?symbol=${symbol}`
         );
         if (!response.ok) throw new Error("Failed to fetch data");
         const data = await response.json();

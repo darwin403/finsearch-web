@@ -308,7 +308,7 @@ export default async function SymbolLayout({
 }) {
   const resolvedParams = await params;
   const res = await fetch(
-    `${config.api_v2.baseUrl}/company?identifier_screener=${resolvedParams.symbol}`,
+    `${config.api.baseUrl}/company?identifier_screener=${resolvedParams.symbol}`,
     { cache: "no-store" }
   );
   const companyData = res.ok ? await res.json() : null;
