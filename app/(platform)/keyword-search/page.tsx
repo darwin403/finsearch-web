@@ -1,7 +1,14 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback } from "react";
+import {
+  useQueryStates,
+  parseAsString,
+  parseAsInteger,
+  parseAsArrayOf,
+  parseAsIsoDate,
+} from "nuqs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import {
@@ -70,6 +77,7 @@ import {
   type SearchResponse,
   type FacetBucket,
 } from "@/lib/api/search";
+import { useState } from "react";
 
 // Import document type mapping
 const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
@@ -161,6 +169,7 @@ interface SearchBarProps {
     to?: Date | undefined;
   }) => void;
   isLoading: boolean;
+  initialQuery?: string;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({
@@ -168,10 +177,15 @@ const SearchBar: React.FC<SearchBarProps> = ({
   dateRange,
   onDateRangeChange,
   isLoading,
+  initialQuery = "",
 }) => {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -517,26 +531,19 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
 );
 
 export default function KeywordSearchPage() {
-  // State management
-  const [searchState, setSearchState] = useState({
-    query: "",
-    isAIMode: false,
-    aiQuestion: "",
-    currentPage: 1,
-    pageSize: 25,
-    sortBy: "date-desc",
-  });
-
-  const [filters, setFilters] = useState({
-    industries: [] as string[],
-    companies: [] as string[],
-    marketCaps: [] as string[],
-    documentTypes: [] as string[],
-    quarters: [] as string[],
-    dateRange: { from: undefined, to: undefined } as {
-      from: Date | undefined;
-      to?: Date | undefined;
-    },
+  // URL state management with nuqs
+  const [urlState, setUrlState] = useQueryStates({
+    q: parseAsString.withDefault(""),
+    page: parseAsInteger.withDefault(1),
+    pageSize: parseAsInteger.withDefault(25),
+    sortBy: parseAsString.withDefault("date-desc"),
+    industries: parseAsArrayOf(parseAsString).withDefault([]),
+    companies: parseAsArrayOf(parseAsString).withDefault([]),
+    marketCaps: parseAsArrayOf(parseAsString).withDefault([]),
+    documentTypes: parseAsArrayOf(parseAsString).withDefault([]),
+    quarters: parseAsArrayOf(parseAsString).withDefault([]),
+    dateFrom: parseAsIsoDate,
+    dateTo: parseAsIsoDate,
   });
 
   const [filterSearches, setFilterSearches] = useState({
@@ -562,32 +569,34 @@ export default function KeywordSearchPage() {
   // Computed values
   const totalResults = apiState.response?.total_count || 0;
   const totalPages = apiState.response?.total_pages || 0;
-  const activeFiltersCount = Object.values(filters).reduce(
-    (count, filter) =>
-      count + (Array.isArray(filter) ? filter.length : filter.from ? 1 : 0),
-    0
-  );
+  const activeFiltersCount =
+    urlState.industries.length +
+    urlState.companies.length +
+    urlState.marketCaps.length +
+    urlState.documentTypes.length +
+    urlState.quarters.length +
+    (urlState.dateFrom ? 1 : 0);
 
   // API calls
   const performSearch = useCallback(
-    async (resetPage = false, queryOverride?: string) => {
+    async (resetPage = false) => {
       setApiState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
         const response = await searchDocuments({
-          query: queryOverride ?? searchState.query,
+          query: urlState.q,
           filters: {
-            industries: filters.industries,
-            companies: filters.companies,
-            market_cap_ranges: filters.marketCaps,
-            document_types: filters.documentTypes,
-            quarters: filters.quarters,
-            date_from: filters.dateRange.from?.toISOString().split("T")[0],
-            date_to: filters.dateRange.to?.toISOString().split("T")[0],
+            industries: urlState.industries,
+            companies: urlState.companies,
+            market_cap_ranges: urlState.marketCaps,
+            document_types: urlState.documentTypes,
+            quarters: urlState.quarters,
+            date_from: urlState.dateFrom?.toISOString().split("T")[0],
+            date_to: urlState.dateTo?.toISOString().split("T")[0],
           },
-          page: resetPage ? 1 : searchState.currentPage,
-          page_size: searchState.pageSize,
-          sort_by: searchState.sortBy as
+          page: resetPage ? 1 : urlState.page,
+          page_size: urlState.pageSize,
+          sort_by: urlState.sortBy as
             | "relevance"
             | "date-desc"
             | "date-asc"
@@ -609,7 +618,7 @@ export default function KeywordSearchPage() {
         }));
 
         if (resetPage) {
-          setSearchState((prev) => ({ ...prev, currentPage: 1 }));
+          setUrlState({ page: 1 });
         }
       } catch (err) {
         setApiState((prev) => ({
@@ -620,7 +629,7 @@ export default function KeywordSearchPage() {
         setApiState((prev) => ({ ...prev, loading: false }));
       }
     },
-    [searchState, filters]
+    [urlState, setUrlState]
   );
 
   // Effects
@@ -632,55 +641,66 @@ export default function KeywordSearchPage() {
     if (apiState.response) {
       performSearch(true);
     }
-  }, [searchState.sortBy, searchState.pageSize, filters]);
+  }, [
+    urlState.sortBy,
+    urlState.pageSize,
+    urlState.industries,
+    urlState.companies,
+    urlState.marketCaps,
+    urlState.documentTypes,
+    urlState.quarters,
+    urlState.dateFrom,
+    urlState.dateTo,
+  ]);
 
   useEffect(() => {
-    if (apiState.response) {
+    if (apiState.response && urlState.page !== 1) {
       performSearch();
     }
-  }, [searchState.currentPage]);
+  }, [urlState.page]);
 
   // Event handlers
   const handleSearch = (query: string) => {
-    setSearchState((prev) => ({ ...prev, query }));
-    performSearch(true, query);
+    setUrlState({ q: query, page: 1 });
+    performSearch(true);
   };
 
   const toggleFilter = useCallback(
-    (filterType: keyof typeof filters, value: string) => {
-      setFilters((prev) => {
-        if (filterType === "dateRange") {
-          return prev; // dateRange is handled separately
-        }
-        const currentArray = prev[filterType] as string[];
-        return {
-          ...prev,
+    (filterType: keyof typeof urlState, value: string) => {
+      const validFilterTypes = [
+        "industries",
+        "companies",
+        "marketCaps",
+        "documentTypes",
+        "quarters",
+      ] as const;
+
+      if (validFilterTypes.includes(filterType as any)) {
+        const currentArray =
+          urlState[filterType as (typeof validFilterTypes)[number]];
+        setUrlState({
           [filterType]: currentArray.includes(value)
             ? currentArray.filter((v: string) => v !== value)
             : [...currentArray, value],
-        };
-      });
+          page: 1,
+        });
+      }
     },
-    []
+    [urlState, setUrlState]
   );
 
   const clearAllFilters = () => {
-    setFilters({
+    setUrlState({
       industries: [],
       companies: [],
       marketCaps: [],
       documentTypes: [],
       quarters: [],
-      dateRange: { from: undefined, to: undefined },
+      dateFrom: null,
+      dateTo: null,
+      page: 1,
     });
   };
-
-  const updateSearchState = useCallback(
-    (updates: Partial<typeof searchState>) => {
-      setSearchState((prev) => ({ ...prev, ...updates }));
-    },
-    []
-  );
 
   const updateFilterSearch = useCallback(
     (filter: keyof typeof filterSearches, value: string) => {
@@ -688,6 +708,17 @@ export default function KeywordSearchPage() {
     },
     []
   );
+
+  const handleDateRangeChange = (dateRange: {
+    from: Date | undefined;
+    to?: Date | undefined;
+  }) => {
+    setUrlState({
+      dateFrom: dateRange.from || null,
+      dateTo: dateRange.to || null,
+      page: 1,
+    });
+  };
 
   // Render helpers
 
@@ -711,14 +742,13 @@ export default function KeywordSearchPage() {
           {/* Search Bar */}
           <SearchBar
             onSearch={handleSearch}
-            dateRange={filters.dateRange}
-            onDateRangeChange={(date) =>
-              setFilters((prev) => ({
-                ...prev,
-                dateRange: date || { from: undefined, to: undefined },
-              }))
-            }
+            dateRange={{
+              from: urlState.dateFrom || undefined,
+              to: urlState.dateTo || undefined,
+            }}
+            onDateRangeChange={handleDateRangeChange}
             isLoading={apiState.loading}
+            initialQuery={urlState.q}
           />
         </div>
       </div>
@@ -745,7 +775,7 @@ export default function KeywordSearchPage() {
                     title="Document Type"
                     icon={FILTER_ICONS.documentType}
                     items={apiState.facets.documentTypes}
-                    selectedItems={filters.documentTypes}
+                    selectedItems={urlState.documentTypes}
                     onToggle={(item) => toggleFilter("documentTypes", item)}
                     searchValue={filterSearches.docType}
                     onSearchChange={(value) =>
@@ -757,7 +787,7 @@ export default function KeywordSearchPage() {
                     title="Industry"
                     icon={FILTER_ICONS.industry}
                     items={apiState.facets.industries}
-                    selectedItems={filters.industries}
+                    selectedItems={urlState.industries}
                     onToggle={(item) => toggleFilter("industries", item)}
                     searchValue={filterSearches.industry}
                     onSearchChange={(value) =>
@@ -769,7 +799,7 @@ export default function KeywordSearchPage() {
                     title="Reporting Period"
                     icon={FILTER_ICONS.reportingPeriod}
                     items={apiState.facets.quarters}
-                    selectedItems={filters.quarters}
+                    selectedItems={urlState.quarters}
                     onToggle={(item) => toggleFilter("quarters", item)}
                     searchValue={filterSearches.quarter}
                     onSearchChange={(value) =>
@@ -782,7 +812,7 @@ export default function KeywordSearchPage() {
                     title="Company"
                     icon={FILTER_ICONS.company}
                     items={apiState.facets.companies}
-                    selectedItems={filters.companies}
+                    selectedItems={urlState.companies}
                     onToggle={(item) => toggleFilter("companies", item)}
                     searchValue={filterSearches.company}
                     onSearchChange={(value) =>
@@ -794,7 +824,7 @@ export default function KeywordSearchPage() {
                     title="Market Cap"
                     icon={FILTER_ICONS.marketCap}
                     items={MARKET_CAP_RANGES}
-                    selectedItems={filters.marketCaps}
+                    selectedItems={urlState.marketCaps}
                     onToggle={(item) => toggleFilter("marketCaps", item)}
                     searchValue={filterSearches.marketCap}
                     onSearchChange={(value) =>
@@ -812,13 +842,9 @@ export default function KeywordSearchPage() {
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2">
               <div className="text-slate-600 dark:text-slate-400 text-sm">
-                Showing{" "}
-                {(searchState.currentPage - 1) * searchState.pageSize + 1}-
-                {Math.min(
-                  searchState.currentPage * searchState.pageSize,
-                  totalResults
-                )}{" "}
-                of {totalResults.toLocaleString()}
+                Showing {(urlState.page - 1) * urlState.pageSize + 1}-
+                {Math.min(urlState.page * urlState.pageSize, totalResults)} of{" "}
+                {totalResults.toLocaleString()}
               </div>
               <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center space-x-3">
@@ -826,9 +852,9 @@ export default function KeywordSearchPage() {
                     Sort by:
                   </span>
                   <Select
-                    value={searchState.sortBy}
+                    value={urlState.sortBy}
                     onValueChange={(value) =>
-                      updateSearchState({ sortBy: value })
+                      setUrlState({ sortBy: value, page: 1 })
                     }
                   >
                     <SelectTrigger className="w-auto min-w-[10.5rem] max-w-[16rem]">
@@ -854,9 +880,9 @@ export default function KeywordSearchPage() {
                     Results per page:
                   </span>
                   <Select
-                    value={searchState.pageSize.toString()}
+                    value={urlState.pageSize.toString()}
                     onValueChange={(value) =>
-                      updateSearchState({ pageSize: Number(value) })
+                      setUrlState({ pageSize: Number(value), page: 1 })
                     }
                   >
                     <SelectTrigger className="w-20">
@@ -919,14 +945,12 @@ export default function KeywordSearchPage() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        if (searchState.currentPage > 1) {
-                          updateSearchState({
-                            currentPage: searchState.currentPage - 1,
-                          });
+                        if (urlState.page > 1) {
+                          setUrlState({ page: urlState.page - 1 });
                         }
                       }}
                       className={
-                        searchState.currentPage === 1
+                        urlState.page === 1
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -941,9 +965,9 @@ export default function KeywordSearchPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            updateSearchState({ currentPage: page });
+                            setUrlState({ page });
                           }}
-                          isActive={searchState.currentPage === page}
+                          isActive={urlState.page === page}
                           className="cursor-pointer"
                         >
                           {page}
@@ -962,7 +986,7 @@ export default function KeywordSearchPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            updateSearchState({ currentPage: totalPages });
+                            setUrlState({ page: totalPages });
                           }}
                           className="cursor-pointer"
                         >
@@ -977,14 +1001,12 @@ export default function KeywordSearchPage() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        if (searchState.currentPage < totalPages) {
-                          updateSearchState({
-                            currentPage: searchState.currentPage + 1,
-                          });
+                        if (urlState.page < totalPages) {
+                          setUrlState({ page: urlState.page + 1 });
                         }
                       }}
                       className={
-                        searchState.currentPage === totalPages
+                        urlState.page === totalPages
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
