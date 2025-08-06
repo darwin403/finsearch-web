@@ -92,13 +92,13 @@ const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
 dayjs.extend(relativeTime);
 
 // Constants
-const MARKET_CAP_RANGES = [
-  { label: "Above ₹20,000 crore", count: 0, value: "above-20000" },
-  { label: "₹5,000-20,000 crore", count: 0, value: "5000-20000" },
-  { label: "₹500-5,000 crore", count: 0, value: "500-5000" },
-  { label: "₹100-500 crore", count: 0, value: "100-500" },
-  { label: "Under ₹100 crore", count: 0, value: "under-100" },
-];
+const MARKET_CAP_LABEL_MAPPER: Record<string, string> = {
+  "above-20000": "Above ₹20,000 crore",
+  "5000-20000": "₹5,000-20,000 crore",
+  "500-5000": "₹500-5,000 crore",
+  "100-500": "₹100-500 crore",
+  "under-100": "Under ₹100 crore",
+};
 
 const SEARCH_SUGGESTIONS = [
   "digital transformation",
@@ -152,9 +152,7 @@ const FILTER_ICONS = {
 // Helper functions
 const getCountStr = (name: string, arr: FacetBucket[]): string => {
   const count = arr.length;
-  const shouldShowCount = ["Industry", "Company", "Reporting Period"].includes(
-    name
-  );
+  const shouldShowCount = ["Industry", "Company"].includes(name);
   return shouldShowCount ? `${count}` : "";
 };
 
@@ -318,7 +316,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 interface FilterSectionProps {
   title: string;
   icon: React.ElementType;
-  items: FacetBucket[] | typeof MARKET_CAP_RANGES;
+  items: FacetBucket[];
   selectedItems: string[];
   onToggle: (item: string) => void;
   searchValue: string;
@@ -343,9 +341,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   const filteredItems = useMemo(() => {
     if (!searchValue) return items;
     return items.filter((item) =>
-      ("key" in item ? item.key : item.label)
-        .toLowerCase()
-        .includes(searchValue.toLowerCase())
+      item.key.toLowerCase().includes(searchValue.toLowerCase())
     );
   }, [items, searchValue]);
 
@@ -364,16 +360,15 @@ const FilterSection: React.FC<FilterSectionProps> = ({
     overscan: 5,
   });
 
-  const renderItem = (item: any, virtualItem?: any) => {
-    const key = "key" in item ? item.key : item.value;
-    const rawLabel = "key" in item ? item.key : item.label;
-    const count =
-      "count" in item
-        ? item.count
-        : (item as (typeof MARKET_CAP_RANGES)[0]).count;
+  const renderItem = (item: FacetBucket, virtualItem?: { start: number }) => {
+    const key = item.key;
+    const rawLabel = item.key;
+    const count = item.count;
     const label =
       accordionValue === "documentType"
         ? DOCUMENT_TYPE_MAPPING[rawLabel] || rawLabel
+        : accordionValue === "marketCap"
+        ? MARKET_CAP_LABEL_MAPPER[rawLabel] || rawLabel
         : rawLabel;
 
     // Show count only for specific filter types
@@ -491,7 +486,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             }
           >
             {filteredItems
-              .filter((item) => ("key" in item ? item.key : item.value))
+              .filter((item) => item.key)
               .map((item) => renderItem(item))}
           </ScrollArea>
         )}
@@ -634,6 +629,7 @@ export default function KeywordSearchPage() {
       companies: [] as FacetBucket[],
       documentTypes: [] as FacetBucket[],
       quarters: [] as FacetBucket[],
+      marketCapRanges: [] as FacetBucket[],
     },
   });
 
@@ -685,6 +681,7 @@ export default function KeywordSearchPage() {
             companies: response.aggregations.companies,
             documentTypes: response.aggregations.document_types,
             quarters: response.aggregations.quarters,
+            marketCapRanges: response.aggregations.market_cap_ranges,
           },
         }));
 
@@ -746,7 +743,11 @@ export default function KeywordSearchPage() {
         "quarters",
       ] as const;
 
-      if (validFilterTypes.includes(filterType as any)) {
+      if (
+        validFilterTypes.includes(
+          filterType as (typeof validFilterTypes)[number]
+        )
+      ) {
         const currentArray =
           urlState[filterType as (typeof validFilterTypes)[number]];
         setUrlState({
@@ -894,7 +895,7 @@ export default function KeywordSearchPage() {
                   <FilterSection
                     title="Market Cap"
                     icon={FILTER_ICONS.marketCap}
-                    items={MARKET_CAP_RANGES}
+                    items={apiState.facets.marketCapRanges}
                     selectedItems={urlState.marketCaps}
                     onToggle={(item) => toggleFilter("marketCaps", item)}
                     searchValue={filterSearches.marketCap}
