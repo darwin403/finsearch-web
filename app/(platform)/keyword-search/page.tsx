@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useMemo, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useMemo, useCallback, useRef } from "react";
 import {
   useQueryStates,
   parseAsString,
@@ -337,6 +338,8 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   accordionValue,
   tooltip,
 }) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+
   const filteredItems = useMemo(() => {
     if (!searchValue) return items;
     return items.filter((item) =>
@@ -348,6 +351,74 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 
   const showSearch = items.length >= 10;
   const hasNoResults = searchValue && filteredItems.length === 0;
+
+  // Only virtualize for company and industry filters with many items
+  const shouldVirtualize =
+    (accordionValue === "industry" || accordionValue === "company") &&
+    filteredItems.length > 50;
+
+  const virtualizer = useVirtualizer({
+    count: filteredItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 32, // Estimated height of each item
+    overscan: 5,
+  });
+
+  const renderItem = (item: any, virtualItem?: any) => {
+    const key = "key" in item ? item.key : item.value;
+    const rawLabel = "key" in item ? item.key : item.label;
+    const count =
+      "count" in item
+        ? item.count
+        : (item as (typeof MARKET_CAP_RANGES)[0]).count;
+    const label =
+      accordionValue === "documentType"
+        ? DOCUMENT_TYPE_MAPPING[rawLabel] || rawLabel
+        : rawLabel;
+
+    // Show count only for specific filter types
+    const shouldShowCount = [
+      "documentType",
+      "marketCap",
+      "reportingPeriod",
+    ].includes(accordionValue);
+
+    return (
+      <div
+        key={key}
+        className="flex items-center space-x-2 p-1 min-w-0"
+        style={
+          virtualItem
+            ? {
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualItem.start}px)`,
+              }
+            : undefined
+        }
+      >
+        <Checkbox
+          id={`${accordionValue}-${key}`}
+          checked={selectedItems.includes(key)}
+          onCheckedChange={() => onToggle(key)}
+          className="flex-shrink-0"
+        />
+        <label
+          htmlFor={`${accordionValue}-${key}`}
+          className="text-sm flex-1 cursor-pointer flex justify-between min-w-0"
+        >
+          <span className="truncate flex-1">{label}</span>
+          {shouldShowCount && (
+            <span className="text-slate-500 dark:text-slate-400 flex-shrink-0 ml-2">
+              ({count})
+            </span>
+          )}
+        </label>
+      </div>
+    );
+  };
 
   return (
     <AccordionItem value={accordionValue}>
@@ -381,58 +452,49 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
           />
         )}
-        <ScrollArea
-          className={
-            accordionValue === "industry" || accordionValue === "company"
-              ? "h-48"
-              : ""
-          }
-        >
-          {hasNoResults ? (
-            <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-              No matching {title} option with &quot;{searchValue}&quot;. The
-              filters show only the <b>top 100 options</b> sorted by most
-              matches. Please fine-grain your search to yield a smaller set of{" "}
-              {title} options.
+
+        {hasNoResults ? (
+          <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
+            No matching {title} for &quot;<b>{searchValue}</b>&quot;
+          </div>
+        ) : shouldVirtualize ? (
+          // For virtualized lists, we need to wrap in a div instead of ScrollArea
+          <div
+            ref={parentRef}
+            className="h-48 overflow-auto relative"
+            style={{
+              // Match ScrollArea's scrollbar styling
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgb(203 213 225) transparent",
+            }}
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const item = filteredItems[virtualItem.index];
+                return renderItem(item, virtualItem);
+              })}
             </div>
-          ) : (
-            filteredItems
+          </div>
+        ) : (
+          // Original ScrollArea for non-virtualized lists
+          <ScrollArea
+            className={
+              accordionValue === "industry" || accordionValue === "company"
+                ? "h-48"
+                : ""
+            }
+          >
+            {filteredItems
               .filter((item) => ("key" in item ? item.key : item.value))
-              .map((item) => {
-                const key = "key" in item ? item.key : item.value;
-                const rawLabel = "key" in item ? item.key : item.label;
-                const count =
-                  "count" in item
-                    ? item.count
-                    : (item as (typeof MARKET_CAP_RANGES)[0]).count;
-
-                // Apply document type mapping for document type filter
-                const label =
-                  accordionValue === "documentType"
-                    ? DOCUMENT_TYPE_MAPPING[rawLabel] || rawLabel
-                    : rawLabel;
-
-                return (
-                  <div key={key} className="flex items-center space-x-2 p-1">
-                    <Checkbox
-                      id={`${accordionValue}-${key}`}
-                      checked={selectedItems.includes(key)}
-                      onCheckedChange={() => onToggle(key)}
-                    />
-                    <label
-                      htmlFor={`${accordionValue}-${key}`}
-                      className="text-sm flex-1 cursor-pointer flex justify-between"
-                    >
-                      <span className="truncate">{label}</span>
-                      <span className="text-slate-500 dark:text-slate-400">
-                        ({count})
-                      </span>
-                    </label>
-                  </div>
-                );
-              })
-          )}
-        </ScrollArea>
+              .map((item) => renderItem(item))}
+          </ScrollArea>
+        )}
       </AccordionContent>
     </AccordionItem>
   );
@@ -498,7 +560,16 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
           <span className="mx-1">•</span>
           <span>{result.industry}</span>
           <span className="mx-1">•</span>
-          <span>{result.market_cap}</span>
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>{result.market_cap}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Market Cap</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -535,7 +606,7 @@ export default function KeywordSearchPage() {
   const [urlState, setUrlState] = useQueryStates({
     q: parseAsString.withDefault(""),
     page: parseAsInteger.withDefault(1),
-    pageSize: parseAsInteger.withDefault(25),
+    pageSize: parseAsInteger.withDefault(10),
     sortBy: parseAsString.withDefault("date-desc"),
     industries: parseAsArrayOf(parseAsString).withDefault([]),
     companies: parseAsArrayOf(parseAsString).withDefault([]),
@@ -755,9 +826,9 @@ export default function KeywordSearchPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Filters Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-3">
             <Card>
               <CardContent>
                 <Accordion
@@ -838,7 +909,7 @@ export default function KeywordSearchPage() {
           </div>
 
           {/* Search Results */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-9">
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2">
               <div className="text-slate-600 dark:text-slate-400 text-sm">
@@ -1025,12 +1096,6 @@ export default function KeywordSearchPage() {
           <div className="font-semibold mb-2">Notes:</div>
           <ul className="list-disc pl-5 space-y-1">
             <li>Announcements update every 15 minutes</li>
-            <li>Limited to BSE-listed companies only</li>
-            <li>BSE listed companies update daily at 9:00 AM</li>
-            <li>
-              Filters display top 100 matching Companies/Industries only -
-              refine your search for complete results
-            </li>
             <li>
               Text from scanned documents is extracted via OCR and may contain
               inaccuracies

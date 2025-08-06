@@ -260,11 +260,11 @@ export function DateRangePicker({
           <div className="flex flex-col border-l p-2 w-44">
             <PresetSection
               title="Recent Periods"
-              presets={presets.slice(0, 4)}
+              presets={presets.slice(0, 5)}
             />
             <PresetSection
               title="Financial Calendar"
-              presets={presets.slice(4)}
+              presets={presets.slice(5)}
             />
           </div>
         </div>
