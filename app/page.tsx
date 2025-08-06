@@ -158,7 +158,7 @@ export default function Home() {
                 variant="secondary"
                 className="absolute -top-2 -right-2 px-1.5 py-0 text-[10px] font-medium bg-blue-50/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-0"
               >
-                Beta v0.1
+                Beta v0.4
               </Badge>
               <Image
                 src="/logo.svg"

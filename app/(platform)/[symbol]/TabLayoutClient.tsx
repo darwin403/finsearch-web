@@ -15,7 +15,6 @@ export const allSections = [
     id: "hierarchy",
     title: "Business Structure",
     path: "hierarchy",
-    new: true,
   },
   { id: "concall", title: "Earnings Calls", path: "concall" },
   { id: "mda", title: "Risk Factors", path: "mda" },
@@ -23,7 +22,6 @@ export const allSections = [
     id: "regulation",
     title: "Regulation Dependencies",
     path: "regulation",
-    new: true,
   },
 ];
 
