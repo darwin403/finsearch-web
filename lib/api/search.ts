@@ -27,8 +27,7 @@ export interface SearchResultItem {
   security_isin?: string;
   security_symbol_bse?: string;
   security_symbol_nse?: string;
-  security_name_bse?: string;
-  security_name_nse?: string;
+  security_name?: string;
   security_tv_logoid?: string;
   exchange_ann_date?: string;
   document_sources: string[];
@@ -74,6 +73,14 @@ export interface SearchResponse {
 
 const API_BASE_URL = "http://localhost:8000";
 
+// Document type mapping for display names
+const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
+  financial_result: "Financial Results",
+  presentation: "Investor Presentations",
+  transcript: "Earnings Transcript",
+  annual_report: "Annual Report",
+};
+
 export async function searchDocuments(
   request: SearchRequest
 ): Promise<SearchResponse> {
@@ -93,9 +100,8 @@ export async function searchDocuments(
 }
 
 export function transformSearchResult(item: SearchResultItem) {
-  const company_name =
-    item.security_name_nse || item.security_name_bse || "N/A";
-  const symbol = item.security_symbol_nse || item.security_symbol_nse || "N/A";
+  const company_name = item.security_name || "N/A";
+  const symbol = item.security_symbol_nse || item.security_symbol_bse || "N/A";
   const industry = item.security_tv_industry || "N/A";
   const market_cap = item.security_tv_market_cap_basic
     ? (() => {
@@ -129,13 +135,20 @@ export function transformSearchResult(item: SearchResultItem) {
     return value;
   };
 
+  // Get display name for document type
+  const getDocumentTypeDisplay = (docType: string | undefined | null) => {
+    const cleanedType = cleanValue(docType);
+    if (!cleanedType) return "unknown";
+    return DOCUMENT_TYPE_MAPPING[cleanedType] || cleanedType;
+  };
+
   return {
     id: item.document_id,
     company_name,
     symbol,
     industry,
     market_cap,
-    document_type: cleanValue(item.document_type) || "unknown",
+    document_type: getDocumentTypeDisplay(item.document_type),
     sourceUrlPairs,
     disclosure_date: item.exchange_ann_date || new Date().toISOString(),
     category:

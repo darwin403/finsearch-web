@@ -9,10 +9,8 @@ import {
   Building2,
   TrendingUp,
   FileText,
-  Info,
   Calendar,
   HelpCircle,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,7 +55,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
+
 import {
   Accordion,
   AccordionItem,
@@ -72,6 +70,14 @@ import {
   type SearchResponse,
   type FacetBucket,
 } from "@/lib/api/search";
+
+// Import document type mapping
+const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
+  financial_result: "Financial Results",
+  presentation: "Investor Presentations",
+  transcript: "Earnings Transcript",
+  annual_report: "Annual Report",
+};
 
 // Initialize dayjs plugins
 dayjs.extend(relativeTime);
@@ -137,27 +143,163 @@ const FILTER_ICONS = {
 // Helper functions
 const getCountStr = (name: string, arr: FacetBucket[]): string => {
   const count = arr.length;
-  return ["Industry", "Company"].includes(name) && count >= 100
-    ? `${count}+`
-    : `${count}`;
+  const shouldShowCount = ["Industry", "Company", "Reporting Period"].includes(
+    name
+  );
+  return shouldShowCount ? `${count}` : "";
 };
 
 const formatDisclosureDate = (dateString: string): string =>
   dayjs(dateString).format("MMM D, YYYY [at] h:mm A");
 
-// Custom hooks
-const useDebounce = <T,>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+// Components
+interface SearchBarProps {
+  onSearch: (query: string) => void;
+  dateRange: { from: Date | undefined; to?: Date | undefined };
+  onDateRangeChange: (dateRange: {
+    from: Date | undefined;
+    to?: Date | undefined;
+  }) => void;
+  isLoading: boolean;
+}
 
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
+const SearchBar: React.FC<SearchBarProps> = ({
+  onSearch,
+  dateRange,
+  onDateRangeChange,
+  isLoading,
+}) => {
+  const [query, setQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
 
-  return debouncedValue;
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(query);
+  };
+
+  const filteredSuggestions = useMemo(
+    () =>
+      query.length === 0
+        ? SEARCH_SUGGESTIONS
+        : SEARCH_SUGGESTIONS.filter((s) =>
+            s.toLowerCase().includes(query.toLowerCase())
+          ),
+    [query]
+  );
+
+  return (
+    <form onSubmit={handleSearch} className="relative space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 w-full">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+              Search Query
+            </Label>
+            <Dialog
+              open={showAdvancedExamples}
+              onOpenChange={setShowAdvancedExamples}
+            >
+              <DialogTrigger asChild>
+                <HelpCircle className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300" />
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Advanced Search Examples</DialogTitle>
+                  <DialogDescription>
+                    Use these Tantivy query examples for more precise searches
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {ADVANCED_SEARCH_EXAMPLES.map((example) => (
+                    <div key={example.title}>
+                      <h4 className="font-medium mb-2">{example.title}</h4>
+                      <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
+                        {example.code}
+                      </code>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                        {example.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
+            <CommandInput
+              placeholder="Search for keywords, companies, or topics..."
+              value={query}
+              onValueChange={setQuery}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSearch(e);
+                }
+              }}
+              className="text-lg py-3"
+            />
+            {isSearchFocused && filteredSuggestions.length > 0 && (
+              <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
+                <CommandGroup heading="Popular Searches">
+                  {filteredSuggestions.map((suggestion) => (
+                    <CommandItem
+                      key={suggestion}
+                      onSelect={() => {
+                        setQuery(suggestion);
+                        setIsSearchFocused(false);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Search className="mr-2 h-4 w-4" />
+                      {suggestion}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            )}
+          </Command>
+        </div>
+        <div className="flex-shrink-0 w-full md:w-auto">
+          <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Disclosure Date
+          </Label>
+          <DateRangePicker
+            date={dateRange}
+            onDateChange={(date) =>
+              onDateRangeChange(date || { from: undefined, to: undefined })
+            }
+          />
+        </div>
+        <div className="flex-shrink-0 w-full md:w-auto">
+          <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            &nbsp;
+          </Label>
+          <Button
+            type="submit"
+            className="w-full md:w-auto gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white dark:text-slate-950 disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                Search
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
 };
 
-// Components
 interface FilterSectionProps {
   title: string;
   icon: React.ElementType;
@@ -198,7 +340,9 @@ const FilterSection: React.FC<FilterSectionProps> = ({
       <AccordionTrigger>
         <span className="font-medium flex items-center">
           <Icon className="w-4 h-4 mr-2" />
-          {title} ({getCountStr(title, items as FacetBucket[])})
+          {title}
+          {getCountStr(title, items as FacetBucket[]) &&
+            ` (${getCountStr(title, items as FacetBucket[])})`}
           {tooltip && (
             <TooltipProvider delayDuration={100}>
               <Tooltip>
@@ -223,20 +367,36 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             className="mb-2 h-8 text-sm px-2 focus:outline-none focus:ring-0 focus-visible:ring-0"
           />
         )}
-        <ScrollArea className={accordionValue === "marketCap" ? "" : "h-48"}>
+        <ScrollArea
+          className={
+            accordionValue === "industry" || accordionValue === "company"
+              ? "h-48"
+              : ""
+          }
+        >
           {hasNoResults ? (
             <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
-              No matching {title} option with "{searchValue}". The filters show
-              only the <b>top 100 options</b> sorted by most matches. Please
-              fine-grain your search to yield a smaller set of {title} options.
+              No matching {title} option with &quot;{searchValue}&quot;. The
+              filters show only the <b>top 100 options</b> sorted by most
+              matches. Please fine-grain your search to yield a smaller set of{" "}
+              {title} options.
             </div>
           ) : (
             filteredItems
               .filter((item) => ("key" in item ? item.key : item.value))
               .map((item) => {
                 const key = "key" in item ? item.key : item.value;
-                const label = "key" in item ? item.key : item.label;
-                const count = "count" in item ? item.count : item.count;
+                const rawLabel = "key" in item ? item.key : item.label;
+                const count =
+                  "count" in item
+                    ? item.count
+                    : (item as (typeof MARKET_CAP_RANGES)[0]).count;
+
+                // Apply document type mapping for document type filter
+                const label =
+                  accordionValue === "documentType"
+                    ? DOCUMENT_TYPE_MAPPING[rawLabel] || rawLabel
+                    : rawLabel;
 
                 return (
                   <div key={key} className="flex items-center space-x-2 p-1">
@@ -332,7 +492,11 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
         {result.subject && (
           <div className="mb-2 text-slate-600 dark:text-slate-400 text-xs">
             <span className="font-medium">Subject:</span>{" "}
-            <u>{result.subject}</u>
+            <u>
+              {result.subject.length > 350
+                ? `${result.subject.slice(0, 350)}...`
+                : result.subject}
+            </u>
           </div>
         )}
         {result.highlight.split(/<em>(.*?)<\/em>/).map((part, index) =>
@@ -360,9 +524,7 @@ export default function KeywordSearchPage() {
     aiQuestion: "",
     currentPage: 1,
     pageSize: 25,
-    sortBy: "relevance",
-    isSearchFocused: false,
-    showAdvancedExamples: false,
+    sortBy: "date-desc",
   });
 
   const [filters, setFilters] = useState({
@@ -408,12 +570,12 @@ export default function KeywordSearchPage() {
 
   // API calls
   const performSearch = useCallback(
-    async (resetPage = false) => {
+    async (resetPage = false, queryOverride?: string) => {
       setApiState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
         const response = await searchDocuments({
-          query: searchState.query,
+          query: queryOverride ?? searchState.query,
           filters: {
             industries: filters.industries,
             companies: filters.companies,
@@ -425,8 +587,15 @@ export default function KeywordSearchPage() {
           },
           page: resetPage ? 1 : searchState.currentPage,
           page_size: searchState.pageSize,
-          sort_by: searchState.sortBy as any,
+          sort_by: searchState.sortBy as
+            | "relevance"
+            | "date-desc"
+            | "date-asc"
+            | "company-asc"
+            | "company-desc",
         });
+
+        console.log(response);
 
         setApiState((prev) => ({
           ...prev,
@@ -463,7 +632,7 @@ export default function KeywordSearchPage() {
     if (apiState.response) {
       performSearch(true);
     }
-  }, [searchState.query, searchState.sortBy, searchState.pageSize, filters]);
+  }, [searchState.sortBy, searchState.pageSize, filters]);
 
   useEffect(() => {
     if (apiState.response) {
@@ -472,19 +641,25 @@ export default function KeywordSearchPage() {
   }, [searchState.currentPage]);
 
   // Event handlers
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    performSearch(true);
+  const handleSearch = (query: string) => {
+    setSearchState((prev) => ({ ...prev, query }));
+    performSearch(true, query);
   };
 
   const toggleFilter = useCallback(
     (filterType: keyof typeof filters, value: string) => {
-      setFilters((prev) => ({
-        ...prev,
-        [filterType]: prev[filterType].includes(value)
-          ? prev[filterType].filter((v) => v !== value)
-          : [...prev[filterType], value],
-      }));
+      setFilters((prev) => {
+        if (filterType === "dateRange") {
+          return prev; // dateRange is handled separately
+        }
+        const currentArray = prev[filterType] as string[];
+        return {
+          ...prev,
+          [filterType]: currentArray.includes(value)
+            ? currentArray.filter((v: string) => v !== value)
+            : [...currentArray, value],
+        };
+      });
     },
     []
   );
@@ -515,15 +690,6 @@ export default function KeywordSearchPage() {
   );
 
   // Render helpers
-  const filteredSuggestions = useMemo(
-    () =>
-      searchState.query.length === 0
-        ? SEARCH_SUGGESTIONS
-        : SEARCH_SUGGESTIONS.filter((s) =>
-            s.toLowerCase().includes(searchState.query.toLowerCase())
-          ),
-    [searchState.query]
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -540,105 +706,20 @@ export default function KeywordSearchPage() {
                 documents
               </p>
             </div>
-            <Dialog
-              open={searchState.showAdvancedExamples}
-              onOpenChange={(open) =>
-                updateSearchState({ showAdvancedExamples: open })
-              }
-            >
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Info className="w-4 h-4 mr-2" />
-                  Advanced Examples
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Advanced Search Examples</DialogTitle>
-                  <DialogDescription>
-                    Use these Tantivy query examples for more precise searches
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {ADVANCED_SEARCH_EXAMPLES.map((example) => (
-                    <div key={example.title}>
-                      <h4 className="font-medium mb-2">{example.title}</h4>
-                      <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                        {example.code}
-                      </code>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        {example.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
 
           {/* Search Bar */}
-          <form onSubmit={handleSearch} className="relative space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 w-full">
-              <div className="flex-1 min-w-0">
-                <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Search Query
-                </Label>
-                <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
-                  <CommandInput
-                    placeholder="Search for keywords, companies, or topics..."
-                    value={searchState.query}
-                    onValueChange={(value) =>
-                      updateSearchState({ query: value })
-                    }
-                    onFocus={() => updateSearchState({ isSearchFocused: true })}
-                    onBlur={() =>
-                      setTimeout(
-                        () => updateSearchState({ isSearchFocused: false }),
-                        200
-                      )
-                    }
-                    className="text-lg py-3"
-                  />
-                  {searchState.isSearchFocused &&
-                    filteredSuggestions.length > 0 && (
-                      <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
-                        <CommandGroup heading="Popular Searches">
-                          {filteredSuggestions.map((suggestion) => (
-                            <CommandItem
-                              key={suggestion}
-                              onSelect={() => {
-                                updateSearchState({
-                                  query: suggestion,
-                                  isSearchFocused: false,
-                                });
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <Search className="mr-2 h-4 w-4" />
-                              {suggestion}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    )}
-                </Command>
-              </div>
-              <div className="flex-shrink-0 w-full md:w-auto">
-                <Label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Disclosure Date
-                </Label>
-                <DateRangePicker
-                  date={filters.dateRange}
-                  onDateChange={(date) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      dateRange: date || { from: undefined, to: undefined },
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          </form>
+          <SearchBar
+            onSearch={handleSearch}
+            dateRange={filters.dateRange}
+            onDateRangeChange={(date) =>
+              setFilters((prev) => ({
+                ...prev,
+                dateRange: date || { from: undefined, to: undefined },
+              }))
+            }
+            isLoading={apiState.loading}
+          />
         </div>
       </div>
 
@@ -653,37 +734,13 @@ export default function KeywordSearchPage() {
                   type="multiple"
                   className="w-full"
                   defaultValue={[
-                    "industry",
-                    "company",
                     "documentType",
+                    "industry",
                     "reportingPeriod",
+                    "company",
                     "marketCap",
                   ]}
                 >
-                  <FilterSection
-                    title="Industry"
-                    icon={FILTER_ICONS.industry}
-                    items={apiState.facets.industries}
-                    selectedItems={filters.industries}
-                    onToggle={(item) => toggleFilter("industries", item)}
-                    searchValue={filterSearches.industry}
-                    onSearchChange={(value) =>
-                      updateFilterSearch("industry", value)
-                    }
-                    accordionValue="industry"
-                  />
-                  <FilterSection
-                    title="Company"
-                    icon={FILTER_ICONS.company}
-                    items={apiState.facets.companies}
-                    selectedItems={filters.companies}
-                    onToggle={(item) => toggleFilter("companies", item)}
-                    searchValue={filterSearches.company}
-                    onSearchChange={(value) =>
-                      updateFilterSearch("company", value)
-                    }
-                    accordionValue="company"
-                  />
                   <FilterSection
                     title="Document Type"
                     icon={FILTER_ICONS.documentType}
@@ -697,6 +754,18 @@ export default function KeywordSearchPage() {
                     accordionValue="documentType"
                   />
                   <FilterSection
+                    title="Industry"
+                    icon={FILTER_ICONS.industry}
+                    items={apiState.facets.industries}
+                    selectedItems={filters.industries}
+                    onToggle={(item) => toggleFilter("industries", item)}
+                    searchValue={filterSearches.industry}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("industry", value)
+                    }
+                    accordionValue="industry"
+                  />
+                  <FilterSection
                     title="Reporting Period"
                     icon={FILTER_ICONS.reportingPeriod}
                     items={apiState.facets.quarters}
@@ -708,6 +777,18 @@ export default function KeywordSearchPage() {
                     }
                     accordionValue="reportingPeriod"
                     tooltip="The reporting period refers to the financial or event period (e.g., quarter, half-year, year) that a document such as earnings, concalls, or filings pertains to."
+                  />
+                  <FilterSection
+                    title="Company"
+                    icon={FILTER_ICONS.company}
+                    items={apiState.facets.companies}
+                    selectedItems={filters.companies}
+                    onToggle={(item) => toggleFilter("companies", item)}
+                    searchValue={filterSearches.company}
+                    onSearchChange={(value) =>
+                      updateFilterSearch("company", value)
+                    }
+                    accordionValue="company"
                   />
                   <FilterSection
                     title="Market Cap"
@@ -765,7 +846,6 @@ export default function KeywordSearchPage() {
                       <SelectItem value="company-desc">
                         Company (Z-A)
                       </SelectItem>
-                      <SelectItem value="doctype">Document Type</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
