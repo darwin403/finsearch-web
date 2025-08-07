@@ -272,7 +272,8 @@ const SearchBar: React.FC<SearchBarProps> = ({
                 <DialogHeader>
                   <DialogTitle>Advanced Search Examples</DialogTitle>
                   <DialogDescription>
-                    Use these Tantivy query examples for more precise searches
+                    Use these full-text search query examples for more precise
+                    searches
                   </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="h-[60vh]">
@@ -964,7 +965,8 @@ export default function KeywordSearchPage() {
                     }
                     accordionValue="industry"
                   />
-                  <FilterSection
+                  {/* // TODO: Add reporting period filter */}
+                  {/* <FilterSection
                     title="Reporting Period"
                     icon={FILTER_ICONS.reportingPeriod}
                     items={apiState.facets.quarters}
@@ -976,7 +978,7 @@ export default function KeywordSearchPage() {
                     }
                     accordionValue="reportingPeriod"
                     tooltip="The reporting period refers to the financial or event period (e.g., quarter, half-year, year) that a document such as earnings, concalls, or filings pertains to."
-                  />
+                  /> */}
                   <FilterSection
                     title="Company"
                     icon={FILTER_ICONS.company}
@@ -1194,7 +1196,12 @@ export default function KeywordSearchPage() {
         <div className="bg-muted/50 border border-muted rounded-lg p-4 text-sm text-muted-foreground">
           <div className="font-semibold mb-2">Notes:</div>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Announcements update every 15 minutes</li>
+            {/* <li>Announcements update every 15 minutes</li> */}
+            <li>Exchange filings only available from 2024 and later.</li>
+            <li>
+              Data is automatically synced with the exchanges at 12:00 AM IST
+              everyday
+            </li>
             <li>
               Text from scanned documents is extracted via OCR and may contain
               inaccuracies

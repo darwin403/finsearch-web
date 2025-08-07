@@ -1,3 +1,5 @@
+import { config } from "@/lib/config";
+
 export interface SearchFilters {
   industries: string[];
   companies: string[];
@@ -71,8 +73,6 @@ export interface SearchResponse {
   query_time_ms: number;
 }
 
-const API_BASE_URL = "http://localhost:8000";
-
 // Document type mapping for display names
 const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
   financial_result: "Financial Results",
@@ -84,7 +84,7 @@ const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
 export async function searchDocuments(
   request: SearchRequest
 ): Promise<SearchResponse> {
-  const response = await fetch(`${API_BASE_URL}/fts`, {
+  const response = await fetch(`${config.api_v2.baseUrl}/fts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
