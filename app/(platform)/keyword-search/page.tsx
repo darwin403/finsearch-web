@@ -1197,10 +1197,14 @@ export default function KeywordSearchPage() {
           <div className="font-semibold mb-2">Notes:</div>
           <ul className="list-disc pl-5 space-y-1">
             {/* <li>Announcements update every 15 minutes</li> */}
-            <li>Exchange filings only available from 2024 and later.</li>
             <li>
-              Data is automatically synced with the exchanges at 12:00 AM IST
-              everyday
+              <b>This is a beta release.</b> There may be some bugs and missing
+              data. We are working on it.
+            </li>
+            <li>
+              Data is currently available from 1st January 2024 to 30th July
+              2025 only. This will be updated to include real-time data as soon
+              as possible.
             </li>
             <li>
               Text from scanned documents is extracted via OCR and may contain
@@ -1214,7 +1218,7 @@ export default function KeywordSearchPage() {
               >
                 Contact us
               </a>{" "}
-              to discuss your requirements
+              to discuss your workflow requirements!
             </li>
           </ul>
         </div>
