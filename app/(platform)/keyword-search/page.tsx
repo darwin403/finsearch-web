@@ -340,11 +340,30 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   const parentRef = useRef<HTMLDivElement>(null);
 
   const filteredItems = useMemo(() => {
-    if (!searchValue) return items;
-    return items.filter((item) =>
-      item.key.toLowerCase().includes(searchValue.toLowerCase())
-    );
-  }, [items, searchValue]);
+    let filtered = items;
+    if (searchValue) {
+      filtered = items.filter((item) =>
+        item.key.toLowerCase().includes(searchValue.toLowerCase())
+      );
+    }
+
+    // Only sort selected items first for industry and company filters
+    if (accordionValue === "industry" || accordionValue === "company") {
+      return filtered.sort((a, b) => {
+        const aSelected = selectedItems.includes(a.key);
+        const bSelected = selectedItems.includes(b.key);
+
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        if (aSelected && bSelected) {
+          return selectedItems.indexOf(a.key) - selectedItems.indexOf(b.key);
+        }
+        return a.key.localeCompare(b.key);
+      });
+    }
+
+    return filtered;
+  }, [items, searchValue, selectedItems, accordionValue]);
 
   const showSearch = items.length >= 10;
   const hasNoResults = searchValue && filteredItems.length === 0;
@@ -373,11 +392,9 @@ const FilterSection: React.FC<FilterSectionProps> = ({
         : rawLabel;
 
     // Show count only for specific filter types
-    const shouldShowCount = [
-      "documentType",
-      "marketCap",
-      "reportingPeriod",
-    ].includes(accordionValue);
+    const shouldShowCount = ["documentType", "reportingPeriod"].includes(
+      accordionValue
+    );
 
     return (
       <div
@@ -487,8 +504,8 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             }
           >
             {filteredItems
-              .filter((item) => item.key)
-              .map((item) => renderItem(item))}
+              .filter((item) => item && item.key)
+              .map((item) => renderItem(item!))}
           </ScrollArea>
         )}
       </AccordionContent>
@@ -555,14 +572,7 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
             </a>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-              <a
-                href={result.company_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline font-medium"
-              >
-                {result.company_name}
-              </a>
+              <span className="font-medium">{result.company_name}</span>
               <span className="mx-1">•</span>
               <span>{result.symbol}</span>
               <span className="mx-1">•</span>
