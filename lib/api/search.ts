@@ -159,5 +159,6 @@ export function transformSearchResult(item: SearchResultItem) {
     document_url,
     company_url: "#", // Not available in backend response
     highlight: item.highlight || "",
+    logoid: item.security_tv_logoid,
   };
 }

@@ -12,6 +12,7 @@ import {
 } from "nuqs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import Image from "next/image";
 import {
   Search,
   Building2,
@@ -530,41 +531,55 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
           </div>
         </div>
 
-        <a
-          href={result.document_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-1"
-        >
-          {result.company_name}
-          {(result.subcategory || result.category) &&
-            ` - ${result.subcategory || result.category}`}
-        </a>
+        <div className="flex items-start gap-3 mb-3">
+          {result.logoid && (
+            <div className="relative h-12 w-12 overflow-hidden rounded-md border bg-slate-100 dark:bg-slate-800 flex-shrink-0">
+              <Image
+                src={`https://s3-symbol-logo.tradingview.com/${result.logoid}--big.svg`}
+                alt={result.company_name}
+                fill
+                className="object-contain p-1"
+              />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <a
+              href={result.document_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-semibold text-blue-600 hover:text-blue-800 break-words block mb-1"
+            >
+              {result.company_name}
+              {(result.subcategory || result.category) &&
+                ` - ${result.subcategory || result.category}`}
+            </a>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-          <a
-            href={result.company_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline font-medium"
-          >
-            {result.company_name}
-          </a>
-          <span className="mx-1">•</span>
-          <span>{result.symbol}</span>
-          <span className="mx-1">•</span>
-          <span>{result.industry}</span>
-          <span className="mx-1">•</span>
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>{result.market_cap}</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Market Cap</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <a
+                href={result.company_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline font-medium"
+              >
+                {result.company_name}
+              </a>
+              <span className="mx-1">•</span>
+              <span>{result.symbol}</span>
+              <span className="mx-1">•</span>
+              <span>{result.industry}</span>
+              <span className="mx-1">•</span>
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>{result.market_cap}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Market Cap</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
         </div>
       </div>
 
