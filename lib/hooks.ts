@@ -12,8 +12,13 @@ const fetcher = async (url: string, notFoundMsg: string, failMsg: string) => {
 // Hierarchy Data Hook
 export function useHierarchyData(symbol: string) {
   const { data, error, isLoading } = useSWRImmutable(
-    symbol ? `${config.api_v2.baseUrl}/hierarchy?symbol=${symbol}` : null,
-    url => fetcher(url, "No hierarchy data available for this company.", "Failed to fetch hierarchy data")
+    symbol ? `${config.api.baseUrl}/hierarchy?symbol=${symbol}` : null,
+    (url) =>
+      fetcher(
+        url,
+        "No hierarchy data available for this company.",
+        "Failed to fetch hierarchy data"
+      )
   );
   return {
     hierarchyData: data,
@@ -25,8 +30,13 @@ export function useHierarchyData(symbol: string) {
 // MDA Data Hook
 export function useMdaData(symbol: string) {
   const { data, error, isLoading } = useSWRImmutable(
-    symbol ? `${config.api_v2.baseUrl}/mda?symbol=${symbol}` : null,
-    url => fetcher(url, "No MDA data available for this company.", "Failed to fetch MDA data")
+    symbol ? `${config.api.baseUrl}/mda?symbol=${symbol}` : null,
+    (url) =>
+      fetcher(
+        url,
+        "No MDA data available for this company.",
+        "Failed to fetch MDA data"
+      )
   );
   return {
     mdaData: data,
@@ -38,8 +48,13 @@ export function useMdaData(symbol: string) {
 // Regulation Data Hook
 export function useRegulationData(symbol: string) {
   const { data, error, isLoading } = useSWRImmutable(
-    symbol ? `${config.api_v2.baseUrl}/regulations?symbol=${symbol}` : null,
-    url => fetcher(url, "No regulation data available for this company.", "Failed to fetch regulation data")
+    symbol ? `${config.api.baseUrl}/regulations?symbol=${symbol}` : null,
+    (url) =>
+      fetcher(
+        url,
+        "No regulation data available for this company.",
+        "Failed to fetch regulation data"
+      )
   );
   return {
     regulationData: data?.data,
@@ -53,11 +68,16 @@ export function useRegulationData(symbol: string) {
 export function useConcallData(symbol: string) {
   const { data, error, isLoading } = useSWRImmutable(
     symbol ? `${config.api.baseUrl}/concalls/?symbol=${symbol}` : null,
-    url => fetcher(url, "No concall data available for this company.", "Failed to fetch concall data")
+    (url) =>
+      fetcher(
+        url,
+        "No concall data available for this company.",
+        "Failed to fetch concall data"
+      )
   );
   return {
     concallData: data,
     error: error?.message || null,
     loading: isLoading,
   };
-} 
+}
