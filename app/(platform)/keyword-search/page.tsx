@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useMemo, useCallback, useRef } from "react";
+import { useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import {
   useQueryStates,
   parseAsString,
@@ -695,8 +695,8 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({
   </Card>
 );
 
-export default function KeywordSearchPage() {
-  // URL state management with nuqs
+// Create a wrapper component that uses useQueryStates
+function KeywordSearchContent() {
   const [urlState, setUrlState] = useQueryStates({
     q: parseAsString.withDefault(""),
     page: parseAsInteger.withDefault(1),
@@ -1224,5 +1224,13 @@ export default function KeywordSearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function KeywordSearchPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <KeywordSearchContent />
+    </Suspense>
   );
 }
