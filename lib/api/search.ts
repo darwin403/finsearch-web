@@ -150,12 +150,14 @@ export function transformSearchResult(item: SearchResultItem) {
     market_cap,
     document_type: getDocumentTypeDisplay(item.document_type),
     sourceUrlPairs,
-    disclosure_date: item.exchange_ann_date || new Date().toISOString(),
+    disclosure_date: item.exchange_ann_date,
     category:
       cleanValue(item.bse_ann_category) || cleanValue(item.nse_ann_category),
     subcategory: cleanValue(item.bse_ann_subcategory),
     subject:
-      cleanValue(item.nse_ann_details) || cleanValue(item.bse_ann_details),
+      cleanValue(item.nse_ann_details) ||
+      cleanValue(item.bse_ann_details) ||
+      cleanValue(item.bse_ann_headline),
     document_url,
     company_url: "#", // Not available in backend response
     highlight: item.highlight || "",

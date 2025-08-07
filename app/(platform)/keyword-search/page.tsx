@@ -20,6 +20,7 @@ import {
   FileText,
   Calendar,
   HelpCircle,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,13 +42,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
+import { Command, CommandInput } from "@/components/ui/command";
 import {
   Pagination,
   PaginationContent,
@@ -101,44 +96,67 @@ const MARKET_CAP_LABEL_MAPPER: Record<string, string> = {
   "under-100": "Under ₹100 crore",
 };
 
-const SEARCH_SUGGESTIONS = [
-  "digital transformation",
-  "revenue growth",
-  "market expansion",
-  "cost optimization",
-  "AI and machine learning",
-  "sustainability initiatives",
-  "merger and acquisition",
-  "regulatory compliance",
-  "customer acquisition",
-  "operational efficiency",
-  "product innovation",
-  "geographic expansion",
-  "supply chain optimization",
-  "risk management",
-  "ESG reporting",
-];
-
 const ADVANCED_SEARCH_EXAMPLES = [
   {
     title: "Phrase Search",
-    code: '"digital transformation"',
-    description: "Search for exact phrases",
+    code: '"debt to equity ratio"',
+    description: "Search for exact financial metric phrases",
   },
   {
-    title: "Boolean Operators",
-    code: "revenue AND growth OR profit",
-    description: "Combine terms with AND, OR, NOT",
+    title: "Boolean AND",
+    code: "margin AND expansion",
+    description: "Find documents discussing both concepts",
   },
   {
-    title: "Field-Specific Search",
-    code: "company:reliance AND sector:energy",
-    description: "Search within specific document fields",
+    title: "Boolean OR",
+    code: "acquisition OR merger",
+    description: "Find corporate action discussions",
   },
   {
-    title: "Wildcard Search",
-    code: "technolog*",
-    description: "Use * for partial word matching",
+    title: "Boolean NOT",
+    code: "growth NOT expenses",
+    description: "Exclude unwanted context",
+  },
+  // TODO: Uncomment these when we have a better understanding of the search capabilities. They were not working as expected during my tests.
+  // {
+  //   title: "Wildcard Search",
+  //   code: "regulat*",
+  //   description: "Match regulatory, regulation, regulations, etc.",
+  // },
+  // {
+  //   title: "Fuzzy Search",
+  //   code: "profitability~",
+  //   description: "Find similar terms (profitability, profitable, etc.)",
+  // },
+  // {
+  //   title: "Proximity Search",
+  //   code: '"revenue growth"~3',
+  //   description: "Revenue and growth within 3 words of each other",
+  // },
+  {
+    title: "Grouping with Parentheses",
+    code: '(capex OR "capital expenditure") AND reduction',
+    description: "Complex logic combinations",
+  },
+  {
+    title: "Required Terms (+)",
+    code: "+EBITDA margin",
+    description: "EBITDA must appear, margin is optional",
+  },
+  {
+    title: "Prohibited Terms (-)",
+    code: "dividend -tax",
+    description: "Include dividend but exclude tax discussions",
+  },
+  {
+    title: "Boost Queries",
+    code: "ESG^2 compliance",
+    description: "Boost ESG importance over compliance",
+  },
+  {
+    title: "Multiple Operators",
+    code: '("working capital" OR liquidity) AND (improvement OR optimization)',
+    description: "Complex financial analysis queries",
   },
 ];
 
@@ -160,6 +178,50 @@ const getCountStr = (name: string, arr: FacetBucket[]): string => {
 const formatDisclosureDate = (dateString: string): string =>
   dayjs(dateString).format("MMM D, YYYY [at] h:mm A");
 
+// Debug Dialog Component
+interface DebugDialogProps {
+  data: Record<string, unknown>;
+  trigger: React.ReactNode;
+}
+
+const DebugDialog: React.FC<DebugDialogProps> = ({ data, trigger }) => {
+  const [open, setOpen] = useState(false);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle>Raw API Response</DialogTitle>
+          <DialogDescription>
+            Debug data for this search result
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="h-[60vh]">
+          <div className="relative group">
+            <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-4 rounded overflow-auto whitespace-pre-wrap">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyToClipboard}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity gap-1"
+            >
+              <Copy className="h-3 w-3" />
+              Copy
+            </Button>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // Components
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -180,7 +242,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
   initialQuery = "",
 }) => {
   const [query, setQuery] = useState(initialQuery);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvancedExamples, setShowAdvancedExamples] = useState(false);
 
   useEffect(() => {
@@ -191,16 +252,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
     e.preventDefault();
     onSearch(query);
   };
-
-  const filteredSuggestions = useMemo(
-    () =>
-      query.length === 0
-        ? SEARCH_SUGGESTIONS
-        : SEARCH_SUGGESTIONS.filter((s) =>
-            s.toLowerCase().includes(query.toLowerCase())
-          ),
-    [query]
-  );
 
   return (
     <form onSubmit={handleSearch} className="relative space-y-4">
@@ -217,36 +268,47 @@ const SearchBar: React.FC<SearchBarProps> = ({
               <DialogTrigger asChild>
                 <HelpCircle className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300" />
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[80vh]">
                 <DialogHeader>
                   <DialogTitle>Advanced Search Examples</DialogTitle>
                   <DialogDescription>
                     Use these Tantivy query examples for more precise searches
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  {ADVANCED_SEARCH_EXAMPLES.map((example) => (
-                    <div key={example.title}>
-                      <h4 className="font-medium mb-2">{example.title}</h4>
-                      <code className="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm block">
-                        {example.code}
-                      </code>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                        {example.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className="h-[60vh]">
+                  <div className="space-y-3 pr-4">
+                    {ADVANCED_SEARCH_EXAMPLES.map((example) => (
+                      <div key={example.title}>
+                        <h4 className="font-medium mb-1 text-sm">
+                          {example.title}
+                        </h4>
+                        <button
+                          onClick={() => {
+                            setQuery(example.code);
+                            setShowAdvancedExamples(false);
+                            onSearch(example.code);
+                          }}
+                          className="w-full text-left"
+                        >
+                          <code className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded text-xs block hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+                            {example.code}
+                          </code>
+                        </button>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          {example.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>
           <Command className="rounded-lg border border-gray-200 focus-within:border-blue-500">
             <CommandInput
-              placeholder="Search for keywords, companies, or topics..."
+              placeholder='Try: "customer acquisition" OR churn'
               value={query}
               onValueChange={setQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -255,25 +317,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
               }}
               className="text-lg py-3"
             />
-            {isSearchFocused && filteredSuggestions.length > 0 && (
-              <CommandList className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg max-h-60">
-                <CommandGroup heading="Popular Searches">
-                  {filteredSuggestions.map((suggestion) => (
-                    <CommandItem
-                      key={suggestion}
-                      onSelect={() => {
-                        setQuery(suggestion);
-                        setIsSearchFocused(false);
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <Search className="mr-2 h-4 w-4" />
-                      {suggestion}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            )}
           </Command>
         </div>
         <div className="flex-shrink-0 w-full md:w-auto">
@@ -515,18 +558,35 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 
 interface SearchResultCardProps {
   result: ReturnType<typeof transformSearchResult>;
+  rawData?: Record<string, unknown>;
 }
 
-const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
+const SearchResultCard: React.FC<SearchResultCardProps> = ({
+  result,
+  rawData,
+}) => (
   <Card className="hover:shadow-md transition-shadow">
     <CardContent className="p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {formatDisclosureDate(result.disclosure_date)}
-            </span>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1">
+                    {/* TODO: Remove this once we have a proper date for all documents.
+                      Annual reports from EXCHANGE_ANNUAL_REPORTS_BSE don't have a date. */}
+                    <Calendar className="w-3 h-3" />
+                    {result.disclosure_date
+                      ? formatDisclosureDate(result.disclosure_date)
+                      : "Unknown"}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>When this document was filed or disclosed</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex gap-1">
             {result.sourceUrlPairs.map((pair, index) => (
@@ -545,6 +605,19 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({ result }) => (
                 </Badge>
               </a>
             ))}
+            {rawData && (
+              <DebugDialog
+                data={rawData}
+                trigger={
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-normal opacity-70 hover:opacity-100 cursor-pointer transition-all"
+                  >
+                    Debug
+                  </Badge>
+                }
+              />
+            )}
           </div>
         </div>
 
@@ -696,8 +769,6 @@ export default function KeywordSearchPage() {
             | "company-desc",
         });
 
-        console.log(response);
-
         setApiState((prev) => ({
           ...prev,
           response,
@@ -735,6 +806,7 @@ export default function KeywordSearchPage() {
       performSearch(true);
     }
   }, [
+    urlState.q,
     urlState.sortBy,
     urlState.pageSize,
     urlState.industries,
@@ -747,15 +819,15 @@ export default function KeywordSearchPage() {
   ]);
 
   useEffect(() => {
-    if (apiState.response && urlState.page !== 1) {
+    if (apiState.response) {
       performSearch();
     }
   }, [urlState.page]);
 
   // Event handlers
   const handleSearch = (query: string) => {
-    setUrlState({ q: query, page: 1 });
-    performSearch(true);
+    const sortBy = query.trim() === "" ? "date-desc" : "relevance";
+    setUrlState({ q: query, page: 1, sortBy });
   };
 
   const toggleFilter = useCallback(
@@ -1028,6 +1100,7 @@ export default function KeywordSearchPage() {
                   <SearchResultCard
                     key={result.document_id}
                     result={transformSearchResult(result)}
+                    rawData={result as unknown as Record<string, unknown>}
                   />
                 ))}
               </div>
