@@ -9,6 +9,7 @@ import {
   parseAsInteger,
   parseAsArrayOf,
   parseAsIsoDate,
+  parseAsBoolean,
 } from "nuqs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -560,11 +561,13 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 interface SearchResultCardProps {
   result: ReturnType<typeof transformSearchResult>;
   rawData?: Record<string, unknown>;
+  debug?: boolean;
 }
 
 const SearchResultCard: React.FC<SearchResultCardProps> = ({
   result,
   rawData,
+  debug = false,
 }) => (
   <Card className="hover:shadow-md transition-shadow">
     <CardContent className="p-6">
@@ -606,7 +609,7 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({
                 </Badge>
               </a>
             ))}
-            {rawData && process.env.NODE_ENV === "development" && (
+            {rawData && debug && (
               <DebugDialog
                 data={rawData}
                 trigger={
@@ -709,6 +712,7 @@ function KeywordSearchContent() {
     quarters: parseAsArrayOf(parseAsString).withDefault([]),
     dateFrom: parseAsIsoDate,
     dateTo: parseAsIsoDate,
+    debug: parseAsBoolean.withDefault(false),
   });
 
   const [filterSearches, setFilterSearches] = useState({
@@ -1103,6 +1107,7 @@ function KeywordSearchContent() {
                     key={result.document_id}
                     result={transformSearchResult(result)}
                     rawData={result as unknown as Record<string, unknown>}
+                    debug={urlState.debug}
                   />
                 ))}
               </div>
