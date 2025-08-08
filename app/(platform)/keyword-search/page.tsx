@@ -13,15 +13,7 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
-import {
-  Search,
-  Building2,
-  TrendingUp,
-  FileText,
-  Calendar,
-  HelpCircle,
-  Copy,
-} from "lucide-react";
+import { Search, Calendar, HelpCircle, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,97 +68,16 @@ import {
 } from "@/lib/api/search";
 import { useState } from "react";
 
-// Import document type mapping
-const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
-  financial_result: "Financial Results",
-  presentation: "Investor Presentations",
-  transcript: "Earnings Transcript",
-  annual_report: "Annual Report",
-};
+// Import shared constants
+import {
+  ADVANCED_SEARCH_EXAMPLES,
+  DOCUMENT_TYPE_MAPPING,
+  MARKET_CAP_LABEL_MAPPER,
+  FILTER_ICONS,
+} from "@/lib/shared/search-constants";
 
 // Initialize dayjs plugins
 dayjs.extend(relativeTime);
-
-// Constants
-const MARKET_CAP_LABEL_MAPPER: Record<string, string> = {
-  "above-20000": "Above ₹20,000 crore",
-  "5000-20000": "₹5,000-20,000 crore",
-  "500-5000": "₹500-5,000 crore",
-  "100-500": "₹100-500 crore",
-  "under-100": "Under ₹100 crore",
-};
-
-const ADVANCED_SEARCH_EXAMPLES = [
-  {
-    title: "Phrase Search",
-    code: '"debt to equity ratio"',
-    description: "Search for exact financial metric phrases",
-  },
-  {
-    title: "Boolean AND",
-    code: "margin AND expansion",
-    description: "Find documents discussing both concepts",
-  },
-  {
-    title: "Boolean OR",
-    code: "acquisition OR merger",
-    description: "Find corporate action discussions",
-  },
-  {
-    title: "Boolean NOT",
-    code: "growth NOT expenses",
-    description: "Exclude unwanted context",
-  },
-  // TODO: Uncomment these when we have a better understanding of the search capabilities. They were not working as expected during my tests.
-  // {
-  //   title: "Wildcard Search",
-  //   code: "regulat*",
-  //   description: "Match regulatory, regulation, regulations, etc.",
-  // },
-  // {
-  //   title: "Fuzzy Search",
-  //   code: "profitability~",
-  //   description: "Find similar terms (profitability, profitable, etc.)",
-  // },
-  // {
-  //   title: "Proximity Search",
-  //   code: '"revenue growth"~3',
-  //   description: "Revenue and growth within 3 words of each other",
-  // },
-  {
-    title: "Grouping with Parentheses",
-    code: '(capex OR "capital expenditure") AND reduction',
-    description: "Complex logic combinations",
-  },
-  {
-    title: "Required Terms (+)",
-    code: "+EBITDA margin",
-    description: "EBITDA must appear, margin is optional",
-  },
-  {
-    title: "Prohibited Terms (-)",
-    code: "dividend -tax",
-    description: "Include dividend but exclude tax discussions",
-  },
-  {
-    title: "Boost Queries",
-    code: "ESG^2 compliance",
-    description: "Boost ESG importance over compliance",
-  },
-  {
-    title: "Multiple Operators",
-    code: '("working capital" OR liquidity) AND (improvement OR optimization)',
-    description: "Complex financial analysis queries",
-  },
-];
-
-const FILTER_ICONS = {
-  industry: Building2,
-  company: Building2,
-  documentType: FileText,
-  reportingPeriod: TrendingUp,
-  marketCap: TrendingUp,
-};
 
 // Helper functions
 const getCountStr = (name: string, arr: FacetBucket[]): string => {

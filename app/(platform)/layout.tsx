@@ -72,6 +72,20 @@ export default function PlatformLayout({ children }: PlatformLayoutProps) {
                   New
                 </Badge>
               </div>
+              <div className="relative">
+                <Link
+                  href="/document-chat"
+                  className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                >
+                  Document Chat
+                </Link>
+                <Badge
+                  variant="secondary"
+                  className="absolute -top-2.5 -right-3 px-1.5 py-0 text-[10px] font-medium bg-green-50/50 dark:bg-green-950/50 text-green-600 dark:text-green-400 border-0"
+                >
+                  New
+                </Badge>
+              </div>
             </nav>
 
             {/* Search in navbar */}
