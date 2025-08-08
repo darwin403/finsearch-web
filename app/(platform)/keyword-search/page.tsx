@@ -606,7 +606,7 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({
                 </Badge>
               </a>
             ))}
-            {rawData && (
+            {rawData && process.env.NODE_ENV === "development" && (
               <DebugDialog
                 data={rawData}
                 trigger={
