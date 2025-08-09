@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import {
+  useQueryStates,
+  parseAsString,
+  parseAsArrayOf,
+  parseAsIsoDate,
+} from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
 import {
   Building2,
   Calendar,
@@ -19,13 +24,15 @@ import {
   X,
   Search,
   ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   SearchHelpIcon,
   MARKET_CAP_LABEL_MAPPER,
+  DOCUMENT_TYPE_MAPPING,
 } from "@/lib/shared/search-constants";
 import {
   Command,
@@ -42,192 +49,382 @@ import {
 } from "@/components/ui/popover";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Label } from "@/components/ui/label";
+import {
+  searchDocuments,
+  transformSearchResult,
+  type SearchResponse,
+  type SearchFilters,
+} from "@/lib/api/search";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 const DOC_LIMIT = 5;
 const TOKEN_LIMIT = 100000;
 const TOKENS_PER_DOC = 15000;
+const PAGE_SIZE = 25;
 
-type ExchangeDoc = {
-  id: string;
-  ticker: string;
-  company: string;
-  type:
-    | "Transcript"
-    | "Presentation"
-    | "10-Q"
-    | "8-K"
-    | "News"
-    | "Press Release";
-  period: string;
-  date: string;
-  industry: string;
-  marketCap: string;
-  documentUrl?: string;
-  highlight?: string;
-};
+type ExchangeDoc = ReturnType<typeof transformSearchResult>;
 
-const MOCK_DOCS: ExchangeDoc[] = [
-  {
-    id: "1",
-    ticker: "TGT",
-    company: "Target Corp.",
-    type: "Transcript",
-    period: "Q2 2025",
-    date: "2025-08-12",
-    industry: "Retail",
-    marketCap: "₹2,15,000 Cr.",
-    documentUrl: "https://example.com/tgt-2025-q2-transcript",
-    highlight:
-      "PAT stood at a solid INR 20.3 Mn, continuing <em>to</em> reflect strong underlying profitability. Leverage Improvement: The <em>Debt</em>-<em>to</em>-<em>Equity</em> <em>ratio</em> improved from 0.73× <em>to</em> 0.65× on a QoQ basis, underscoring our proactive capital-structure optimization.",
-  },
-  {
-    id: "2",
-    ticker: "AHR",
-    company: "Atlas Housing",
-    type: "Presentation",
-    period: "Q2 2025",
-    date: "2025-08-08",
-    industry: "Real Estate",
-    marketCap: "₹3,500 Cr.",
-    documentUrl: "https://example.com/ahr-2025-q2-presentation",
-    highlight:
-      "Healthy Interest Coverage: An Interest Service Coverage <em>Ratio</em> of 4.01× demonstrates strong earnings capability and effective <em>debt</em> servicing. Stable Finance Costs: Finance costs held steady at roughly INR 8.4 Mn, despite higher operational volumes.",
-  },
-  {
-    id: "3",
-    ticker: "EFC",
-    company: "Ellington Financial",
-    type: "Presentation",
-    period: "Q2 2025",
-    date: "2025-08-08",
-    industry: "Financial Services",
-    marketCap: "₹8,200 Cr.",
-    documentUrl: "https://example.com/efc-2025-q2-presentation",
-    highlight:
-      "Revenue growth accelerated <em>to</em> 15.2% YoY, driven by strong performance in our core <em>debt</em> management services. The <em>debt</em>-<em>to</em>-<em>equity</em> <em>ratio</em> improved significantly from 0.85× <em>to</em> 0.72×.",
-  },
-  {
-    id: "4",
-    ticker: "GRNT",
-    company: "Granite Ridge",
-    type: "Presentation",
-    period: "Q2 2025",
-    date: "2025-08-08",
-    industry: "Energy",
-    marketCap: "₹450 Cr.",
-    documentUrl: "https://example.com/grnt-2025-q2-presentation",
-    highlight:
-      "Our <em>debt</em> management strategy continues <em>to</em> deliver results with the <em>debt</em>-<em>to</em>-<em>equity</em> <em>ratio</em> declining from 0.92× <em>to</em> 0.78×. Interest coverage <em>ratio</em> improved <em>to</em> 3.8×.",
-  },
-  {
-    id: "5",
-    ticker: "OPAL",
-    company: "OPAL Fuels",
-    type: "Presentation",
-    period: "Q2 2025",
-    date: "2025-08-08",
-    industry: "Energy",
-    marketCap: "₹320 Cr.",
-    documentUrl: "https://example.com/opal-2025-q2-presentation",
-    highlight:
-      "Strong operational performance led <em>to</em> improved <em>debt</em> metrics. The <em>debt</em>-<em>to</em>-<em>equity</em> <em>ratio</em> decreased from 0.88× <em>to</em> 0.71×, while interest coverage <em>ratio</em> strengthened <em>to</em> 4.2×.",
-  },
-  {
-    id: "6",
-    ticker: "LNT",
-    company: "Alliant Energy",
-    type: "Presentation",
-    period: "Q2 2025",
-    date: "2025-08-08",
-    industry: "Utilities",
-    marketCap: "₹12,500 Cr.",
-    documentUrl: "https://example.com/lnt-2025-q2-presentation",
-    highlight:
-      "Capital structure optimization continues <em>to</em> progress with <em>debt</em>-<em>to</em>-<em>equity</em> <em>ratio</em> improving from 0.76× <em>to</em> 0.68×. Interest coverage <em>ratio</em> maintained at 4.5×.",
-  },
-];
+// Custom hook for virtualized list
+function useVirtualizedList(
+  items: string[],
+  searchTerm: string,
+  containerRef: React.RefObject<HTMLDivElement>
+) {
+  const filtered = useMemo(
+    () =>
+      searchTerm
+        ? items.filter((item) =>
+            item.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : items,
+    [items, searchTerm]
+  );
+
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => 32,
+    overscan: 5,
+  });
+
+  return { filtered, virtualizer };
+}
+
+// Reusable filter popover component
+function FilterPopover({
+  label,
+  selectedItems,
+  items,
+  onSelectionChange,
+  searchable = false,
+  labelMapper = {},
+  multiSelectLabel = "items",
+}: {
+  label: string;
+  selectedItems: string[];
+  items: string[];
+  onSelectionChange: (items: string[]) => void;
+  searchable?: boolean;
+  labelMapper?: Record<string, string>;
+  multiSelectLabel?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { filtered, virtualizer } = useVirtualizedList(
+    items,
+    search,
+    containerRef as React.RefObject<HTMLDivElement>
+  );
+
+  const toggleItem = (item: string) => {
+    onSelectionChange(
+      selectedItems.includes(item)
+        ? selectedItems.filter((i) => i !== item)
+        : [...selectedItems, item]
+    );
+  };
+
+  const getButtonLabel = () => {
+    if (selectedItems.length === 0) return label;
+    if (selectedItems.length === 1)
+      return labelMapper[selectedItems[0]] || selectedItems[0];
+    return `${selectedItems.length} ${multiSelectLabel} selected`;
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="flex-1 justify-between">
+          {getButtonLabel()}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="flex-1 p-0">
+        {searchable ? (
+          <div className="p-2">
+            <Input
+              placeholder={`Search ${multiSelectLabel}...`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="mb-2 h-8 text-sm"
+            />
+            {filtered.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-2">
+                No {multiSelectLabel} found.
+              </div>
+            ) : (
+              <div
+                ref={containerRef}
+                className="h-48 overflow-auto relative"
+                style={{ scrollbarWidth: "thin" }}
+              >
+                <div
+                  style={{
+                    height: `${virtualizer.getTotalSize()}px`,
+                    position: "relative",
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                    const item = filtered[virtualItem.index];
+                    return (
+                      <div
+                        key={item}
+                        className="flex items-center space-x-2 p-2 hover:bg-accent cursor-pointer"
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          transform: `translateY(${virtualItem.start}px)`,
+                        }}
+                        onClick={() => toggleItem(item)}
+                      >
+                        <Checkbox
+                          checked={selectedItems.includes(item)}
+                          className="mr-2"
+                        />
+                        <span
+                          className="text-sm truncate max-w-[200px]"
+                          title={item}
+                        >
+                          {item}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Command>
+            <CommandInput placeholder={`Search ${multiSelectLabel}...`} />
+            <CommandList>
+              <CommandEmpty>No {multiSelectLabel} found.</CommandEmpty>
+              <CommandGroup>
+                {items.map((item) => (
+                  <CommandItem
+                    key={item}
+                    value={item}
+                    onSelect={() => toggleItem(item)}
+                  >
+                    <Checkbox
+                      checked={selectedItems.includes(item)}
+                      className="mr-2"
+                    />
+                    {labelMapper[item] || item}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Document item component
+function DocumentItem({
+  doc,
+  isSelected,
+  onToggle,
+}: {
+  doc: ExchangeDoc;
+  isSelected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      className={`p-3 border rounded-lg transition-colors bg-white ${
+        isSelected ? "bg-blue-50 border-blue-200" : "hover:bg-gray-50"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div
+          className="flex items-center gap-3 flex-1 cursor-pointer"
+          onClick={onToggle}
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-gray-900">
+              {doc.symbol}
+            </span>
+            <span className="text-xs text-gray-500">•</span>
+            {doc.sourceUrlPairs?.[0] ? (
+              <a
+                href={doc.sourceUrlPairs[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 underline font-medium"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {doc.document_type}
+              </a>
+            ) : (
+              <span className="text-xs text-gray-600 font-medium">
+                {doc.document_type}
+              </span>
+            )}
+            <span className="text-xs text-gray-500">•</span>
+            {doc.highlight && (
+              <span className="text-xs text-gray-600 max-w-xs truncate">
+                {doc.highlight.split(/<em>(.*?)<\/em>/).map((part, index) =>
+                  index % 2 === 1 ? (
+                    <span
+                      key={index}
+                      className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
+                    >
+                      {part}
+                    </span>
+                  ) : (
+                    part
+                  )
+                )}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <Calendar className="h-3 w-3" />
+            {doc.disclosure_date
+              ? new Date(doc.disclosure_date).toLocaleDateString("en-IN")
+              : "N/A"}
+          </div>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onToggle}
+            className="ml-2"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function DocumentPickerDialog({
   open,
   onOpenChange,
   selectedIds,
   onChange,
+  onDocumentsLoaded,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  onDocumentsLoaded: (docMap: Record<string, ExchangeDoc>) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
-  const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([]);
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
-  const [selectedMarketCaps, setSelectedMarketCaps] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to?: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
+  const [urlState, setUrlState] = useQueryStates({
+    q: parseAsString.withDefault(""),
+    companies: parseAsArrayOf(parseAsString).withDefault([]),
+    documentTypes: parseAsArrayOf(parseAsString).withDefault([]),
+    industries: parseAsArrayOf(parseAsString).withDefault([]),
+    marketCaps: parseAsArrayOf(parseAsString).withDefault([]),
+    dateFrom: parseAsIsoDate,
+    dateTo: parseAsIsoDate,
   });
 
-  const companies = useMemo(
-    () => Array.from(new Set(MOCK_DOCS.map((d) => d.company))),
-    []
-  );
-  const types = useMemo(
-    () => Array.from(new Set(MOCK_DOCS.map((d) => d.type))),
-    []
-  );
-  const industries = useMemo(
-    () => Array.from(new Set(MOCK_DOCS.map((d) => d.industry))),
-    []
-  );
-  const marketCaps = useMemo(
-    () => ["above-20000", "5000-20000", "500-5000", "100-500", "under-100"],
-    []
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState<SearchResponse | null>(null);
+  const [page, setPage] = useState(1);
+
+  const aggregations = useMemo(
+    () => ({
+      companies: response?.aggregations.companies.map((c) => c.key) || [],
+      types: response?.aggregations.document_types.map((t) => t.key) || [],
+      industries: response?.aggregations.industries.map((i) => i.key) || [],
+      marketCaps:
+        response?.aggregations.market_cap_ranges.map((m) => m.key) || [],
+    }),
+    [response]
   );
 
-  const filtered = useMemo(() => {
-    return MOCK_DOCS.filter((d) => {
-      const matchesQuery =
-        !query ||
-        [d.ticker, d.company, d.type, d.period, d.industry].some((v) =>
-          v.toLowerCase().includes(query.toLowerCase())
-        );
-      const matchesCompany =
-        selectedCompanies.length === 0 || selectedCompanies.includes(d.company);
-      const matchesType =
-        selectedDocTypes.length === 0 || selectedDocTypes.includes(d.type);
-      const matchesIndustry =
-        selectedIndustries.length === 0 ||
-        selectedIndustries.includes(d.industry);
-      const matchesMarketCap =
-        selectedMarketCaps.length === 0 ||
-        selectedMarketCaps.includes(d.marketCap);
-      return (
-        matchesQuery &&
-        matchesCompany &&
-        matchesType &&
-        matchesIndustry &&
-        matchesMarketCap
-      );
-    });
+  const documents = useMemo(
+    () => response?.results.map(transformSearchResult) || [],
+    [response]
+  );
+
+  const performSearch = async () => {
+    setLoading(true);
+    try {
+      const filters: SearchFilters = {
+        companies: urlState.companies,
+        document_types: urlState.documentTypes,
+        industries: urlState.industries,
+        market_cap_ranges: urlState.marketCaps,
+        quarters: [],
+        date_from: urlState.dateFrom?.toISOString().split("T")[0],
+        date_to: urlState.dateTo?.toISOString().split("T")[0],
+      };
+
+      const result = await searchDocuments({
+        query: urlState.q,
+        filters,
+        page,
+        page_size: PAGE_SIZE,
+        sort_by: urlState.q ? "relevance" : "date-desc",
+        snippet_size: 100,
+      });
+
+      setResponse(result);
+
+      const docMap = result.results.reduce((acc, item) => {
+        acc[item.document_id] = transformSearchResult(item);
+        return acc;
+      }, {} as Record<string, ExchangeDoc>);
+
+      onDocumentsLoaded(docMap);
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      performSearch();
+    }
   }, [
-    query,
-    selectedCompanies,
-    selectedDocTypes,
-    selectedIndustries,
-    selectedMarketCaps,
+    open,
+    page,
+    urlState.companies,
+    urlState.documentTypes,
+    urlState.industries,
+    urlState.marketCaps,
+    urlState.dateFrom,
+    urlState.dateTo,
   ]);
 
-  const toggle = (id: string) => {
+  useEffect(() => {
+    if (open) setPage(1);
+  }, [open]);
+
+  const handleSearch = () => {
+    setPage(1);
+    performSearch();
+  };
+
+  const toggleDocument = (id: string) => {
     onChange(
       selectedIds.includes(id)
         ? selectedIds.filter((x) => x !== id)
         : [...selectedIds, id]
     );
   };
+
+  const toggleAll = () => {
+    onChange(
+      selectedIds.length === documents.length
+        ? []
+        : documents.map((doc) => doc.id)
+    );
+  };
+
+  const isOverLimit =
+    selectedIds.length > DOC_LIMIT ||
+    selectedIds.length * TOKENS_PER_DOC > TOKEN_LIMIT;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,24 +434,34 @@ function DocumentPickerDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Search Input and Date Range */}
+          {/* Search and Date Range */}
           <div className="flex gap-4">
             <div className="flex-1">
               <Label className="block text-xs font-medium text-gray-700 mb-1">
                 Filter by Keyword
               </Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <SearchHelpIcon
-                  onExampleSelect={setQuery}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
-                />
-                <Input
-                  placeholder='"customer acquisition" OR "churn"'
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-10 pr-10"
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <SearchHelpIcon
+                    onExampleSelect={(example) => {
+                      setUrlState({ q: example });
+                      // Trigger search immediately when example is selected
+                      setTimeout(() => handleSearch(), 0);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600"
+                  />
+                  <Input
+                    placeholder='"customer acquisition" OR "churn"'
+                    value={urlState.q}
+                    onChange={(e) => setUrlState({ q: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="pl-10 pr-10"
+                  />
+                </div>
+                <Button onClick={handleSearch} size="sm">
+                  <Search className="h-4 w-4" />
+                </Button>
               </div>
             </div>
             <div className="flex-shrink-0">
@@ -262,318 +469,128 @@ function DocumentPickerDialog({
                 Disclosure Date
               </Label>
               <DateRangePicker
-                date={dateRange}
-                onDateChange={(date) =>
-                  setDateRange(date || { from: undefined, to: undefined })
+                date={{
+                  from: urlState.dateFrom || undefined,
+                  to: urlState.dateTo || undefined,
+                }}
+                onDateChange={({ from, to }) =>
+                  setUrlState({ dateFrom: from || null, dateTo: to || null })
                 }
               />
             </div>
           </div>
 
-          {/* Filters - Full Width */}
+          {/* Filters */}
           <div className="flex gap-4 mb-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="flex-1 justify-between"
-                >
-                  {selectedCompanies.length === 0
-                    ? "Select Companies"
-                    : selectedCompanies.length === 1
-                    ? selectedCompanies[0]
-                    : `${selectedCompanies.length} companies selected`}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="flex-1 p-0">
-                <Command>
-                  <CommandInput placeholder="Search companies..." />
-                  <CommandList>
-                    <CommandEmpty>No company found.</CommandEmpty>
-                    <CommandGroup>
-                      {companies.map((c) => (
-                        <CommandItem
-                          key={c}
-                          value={c}
-                          onSelect={() => {
-                            setSelectedCompanies((prev) =>
-                              prev.includes(c)
-                                ? prev.filter((item) => item !== c)
-                                : [...prev, c]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={selectedCompanies.includes(c)}
-                            className="mr-2"
-                          />
-                          {c}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="flex-1 justify-between"
-                >
-                  {selectedDocTypes.length === 0
-                    ? "Select Document Types"
-                    : selectedDocTypes.length === 1
-                    ? selectedDocTypes[0]
-                    : `${selectedDocTypes.length} types selected`}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="flex-1 p-0">
-                <Command>
-                  <CommandInput placeholder="Search document types..." />
-                  <CommandList>
-                    <CommandEmpty>No document type found.</CommandEmpty>
-                    <CommandGroup>
-                      {types.map((t) => (
-                        <CommandItem
-                          key={t}
-                          value={t}
-                          onSelect={() => {
-                            setSelectedDocTypes((prev) =>
-                              prev.includes(t)
-                                ? prev.filter((item) => item !== t)
-                                : [...prev, t]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={selectedDocTypes.includes(t)}
-                            className="mr-2"
-                          />
-                          {t}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="flex-1 justify-between"
-                >
-                  {selectedIndustries.length === 0
-                    ? "Select Industries"
-                    : selectedIndustries.length === 1
-                    ? selectedIndustries[0]
-                    : `${selectedIndustries.length} industries selected`}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="flex-1 p-0">
-                <Command>
-                  <CommandInput placeholder="Search industries..." />
-                  <CommandList>
-                    <CommandEmpty>No industry found.</CommandEmpty>
-                    <CommandGroup>
-                      {industries.map((i) => (
-                        <CommandItem
-                          key={i}
-                          value={i}
-                          onSelect={() => {
-                            setSelectedIndustries((prev) =>
-                              prev.includes(i)
-                                ? prev.filter((item) => item !== i)
-                                : [...prev, i]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={selectedIndustries.includes(i)}
-                            className="mr-2"
-                          />
-                          {i}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="flex-1 justify-between"
-                >
-                  {selectedMarketCaps.length === 0
-                    ? "Select Market Caps"
-                    : selectedMarketCaps.length === 1
-                    ? MARKET_CAP_LABEL_MAPPER[selectedMarketCaps[0]] ||
-                      selectedMarketCaps[0]
-                    : `${selectedMarketCaps.length} market caps selected`}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="flex-1 p-0">
-                <Command>
-                  <CommandList>
-                    <CommandGroup>
-                      {marketCaps.map((mc) => (
-                        <CommandItem
-                          key={mc}
-                          value={mc}
-                          onSelect={() => {
-                            setSelectedMarketCaps((prev) =>
-                              prev.includes(mc)
-                                ? prev.filter((item) => item !== mc)
-                                : [...prev, mc]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={selectedMarketCaps.includes(mc)}
-                            className="mr-2"
-                          />
-                          {MARKET_CAP_LABEL_MAPPER[mc] || mc}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <FilterPopover
+              label="Select Companies"
+              selectedItems={urlState.companies}
+              items={aggregations.companies}
+              onSelectionChange={(companies) => setUrlState({ companies })}
+              searchable
+              multiSelectLabel="companies"
+            />
+            <FilterPopover
+              label="Select Document Types"
+              selectedItems={urlState.documentTypes}
+              items={aggregations.types}
+              onSelectionChange={(documentTypes) =>
+                setUrlState({ documentTypes })
+              }
+              labelMapper={DOCUMENT_TYPE_MAPPING}
+              multiSelectLabel="types"
+            />
+            <FilterPopover
+              label="Select Industries"
+              selectedItems={urlState.industries}
+              items={aggregations.industries}
+              onSelectionChange={(industries) => setUrlState({ industries })}
+              searchable
+              multiSelectLabel="industries"
+            />
+            <FilterPopover
+              label="Select Market Caps"
+              selectedItems={urlState.marketCaps}
+              items={aggregations.marketCaps}
+              onSelectionChange={(marketCaps) => setUrlState({ marketCaps })}
+              labelMapper={MARKET_CAP_LABEL_MAPPER}
+              multiSelectLabel="market caps"
+            />
           </div>
 
-          {/* Section Break */}
+          {/* Document List */}
           <div className="border-slate-200 mt-4 pt-6">
-            {/* Document List Header */}
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-gray-500">
-                Found {filtered.length} documents. Filter to narrow results
-                further.
+                Found {response?.total_count || 0} documents. Filter to narrow
+                results further.
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="link"
-                  size="xs"
-                  className="text-blue-600 hover:text-blue-700 underline p-0 h-auto text-xs"
-                  onClick={() => {
-                    if (selectedIds.length === filtered.length) {
-                      onChange([]);
-                    } else {
-                      onChange(filtered.map((doc) => doc.id));
-                    }
-                  }}
-                >
-                  {selectedIds.length === filtered.length
-                    ? "Clear"
-                    : "Select All"}
-                </Button>
-              </div>
+              <Button
+                variant="link"
+                size="xs"
+                className="text-blue-600 hover:text-blue-700 underline p-0 h-auto text-xs"
+                onClick={toggleAll}
+              >
+                {selectedIds.length === documents.length
+                  ? "Clear"
+                  : "Select All"}
+              </Button>
             </div>
 
-            {/* Document List */}
             <div className="bg-slate-50 border-t border-slate-100 rounded-sm">
               <ScrollArea className="h-64">
                 <div className="p-3 space-y-2">
-                  {filtered.map((doc) => {
-                    const isSelected = selectedIds.includes(doc.id);
-                    return (
-                      <div
+                  {loading ? (
+                    <div className="text-center py-8 text-gray-500">
+                      Loading...
+                    </div>
+                  ) : documents.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No documents found
+                    </div>
+                  ) : (
+                    documents.map((doc) => (
+                      <DocumentItem
                         key={doc.id}
-                        className={`p-3 border rounded-lg transition-colors bg-white ${
-                          isSelected
-                            ? "bg-blue-50 border-blue-200"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div
-                            className="flex items-center gap-3 flex-1 cursor-pointer"
-                            onClick={() => toggle(doc.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-gray-500" />
-                              <span className="font-medium text-sm">
-                                {doc.company}
-                              </span>
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              {doc.ticker}
-                            </span>
-
-                            <span className="text-xs text-gray-500">•</span>
-                            <span className="text-xs text-gray-500">
-                              {doc.industry}
-                            </span>
-                            <span className="text-xs text-gray-500">•</span>
-                            <span className="text-xs text-gray-500">
-                              {doc.marketCap}
-                            </span>
-                            <span className="text-xs text-gray-500">•</span>
-                            <span className="text-xs text-gray-500">
-                              {doc.type}
-                            </span>
-                            <span className="text-xs text-gray-500">•</span>
-                            <a
-                              href={doc.documentUrl || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-gray-500 hover:text-blue-800 underline cursor-pointer"
-                            >
-                              Source
-                            </a>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(doc.date).toLocaleDateString("en-IN")}
-                            </div>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggle(doc.id)}
-                              className="ml-2"
-                            />
-                          </div>
-                        </div>
-                        {doc.highlight && (
-                          <div className="text-xs text-gray-600 mt-2 leading-relaxed">
-                            {doc.highlight
-                              .substring(0, 100)
-                              .split(/<em>(.*?)<\/em>/)
-                              .map((part, index) =>
-                                index % 2 === 1 ? (
-                                  <span
-                                    key={index}
-                                    className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
-                                  >
-                                    {part}
-                                  </span>
-                                ) : (
-                                  part
-                                )
-                              )}
-                            {doc.highlight.length > 100 && "..."}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        doc={doc}
+                        isSelected={selectedIds.includes(doc.id)}
+                        onToggle={() => toggleDocument(doc.id)}
+                      />
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </div>
+
+            {/* Pagination */}
+            {response && response.total_pages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-gray-600">
+                  Page {page} of {response.total_pages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPage((p) => Math.min(response.total_pages, p + 1))
+                  }
+                  disabled={page === response.total_pages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Limits and Actions */}
+          {/* Footer */}
           <div className="flex items-center justify-between">
             <div className="text-xs space-x-4">
               <span
@@ -605,10 +622,7 @@ function DocumentPickerDialog({
               </Button>
               <Button
                 onClick={() => onOpenChange(false)}
-                disabled={
-                  selectedIds.length > DOC_LIMIT ||
-                  selectedIds.length * TOKENS_PER_DOC > TOKEN_LIMIT
-                }
+                disabled={isOverLimit}
               >
                 Done ({selectedIds.length} selected)
               </Button>
@@ -620,13 +634,25 @@ function DocumentPickerDialog({
   );
 }
 
-export default function Page() {
+function DocumentChatContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [selectedDocMap, setSelectedDocMap] = useState<
+    Record<string, ExchangeDoc>
+  >({});
 
-  const selectedDocs = MOCK_DOCS.filter((doc) =>
-    selectedDocIds.includes(doc.id)
-  );
+  const selectedDocs = selectedDocIds
+    .map((id) => selectedDocMap[id])
+    .filter(Boolean);
+
+  const removeDocument = (docId: string) => {
+    setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
+    setSelectedDocMap((prev) => {
+      const newMap = { ...prev };
+      delete newMap[docId];
+      return newMap;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -664,23 +690,23 @@ export default function Page() {
                   >
                     <div className="flex items-center gap-3">
                       <Building2 className="h-4 w-4 text-gray-500" />
-                      <span className="font-medium">${doc.ticker}</span>
+                      <span className="font-medium">{doc.symbol}</span>
                       <Badge variant="outline" className="text-xs">
-                        {doc.type}
+                        {doc.document_type}
                       </Badge>
                       <span className="text-sm text-gray-600">
-                        {doc.company}
+                        {doc.company_name}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {doc.period}
+                        {doc.disclosure_date
+                          ? new Date(doc.disclosure_date).toLocaleDateString(
+                              "en-IN"
+                            )
+                          : "N/A"}
                       </span>
                     </div>
                     <button
-                      onClick={() =>
-                        setSelectedDocIds((prev) =>
-                          prev.filter((id) => id !== doc.id)
-                        )
-                      }
+                      onClick={() => removeDocument(doc.id)}
                       className="p-1 hover:bg-gray-200 rounded"
                     >
                       <X className="h-4 w-4 text-gray-500" />
@@ -705,8 +731,17 @@ export default function Page() {
           onOpenChange={setDialogOpen}
           selectedIds={selectedDocIds}
           onChange={setSelectedDocIds}
+          onDocumentsLoaded={setSelectedDocMap}
         />
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DocumentChatContent />
+    </Suspense>
   );
 }

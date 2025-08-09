@@ -15,6 +15,7 @@ export interface SearchRequest {
   filters: SearchFilters;
   page: number;
   page_size: number;
+  snippet_size?: number;
   sort_by:
     | "relevance"
     | "date-desc"
@@ -138,7 +139,7 @@ export function transformSearchResult(item: SearchResultItem) {
   // Get display name for document type
   const getDocumentTypeDisplay = (docType: string | undefined | null) => {
     const cleanedType = cleanValue(docType);
-    if (!cleanedType) return "unknown";
+    if (!cleanedType) return "Exchange Filing";
     return DOCUMENT_TYPE_MAPPING[cleanedType] || cleanedType;
   };
 

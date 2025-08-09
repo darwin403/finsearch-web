@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { HelpCircle, Building2, FileText, TrendingUp } from "lucide-react";
 import {
   Dialog,
@@ -89,9 +90,18 @@ export function AdvancedSearchExamplesDialog({
   children,
   onExampleSelect,
 }: AdvancedSearchExamplesDialogProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleExampleSelect = (code: string) => {
+    onExampleSelect?.(code);
+    setOpen(false);
+  };
+
   return (
-    <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild onClick={() => setOpen(true)}>
+        {children}
+      </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Advanced Search Examples</DialogTitle>
@@ -105,9 +115,7 @@ export function AdvancedSearchExamplesDialog({
               <div key={example.title}>
                 <h4 className="font-medium mb-1 text-sm">{example.title}</h4>
                 <button
-                  onClick={() => {
-                    onExampleSelect?.(example.code);
-                  }}
+                  onClick={() => handleExampleSelect(example.code)}
                   className="w-full text-left"
                 >
                   <code className="bg-gray-100 dark:bg-gray-800 p-1.5 rounded text-xs block hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors">
