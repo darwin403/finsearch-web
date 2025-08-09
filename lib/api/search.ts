@@ -76,8 +76,8 @@ export interface SearchResponse {
 
 // Document type mapping for display names
 const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
-  financial_result: "Financial Results",
-  presentation: "Investor Presentations",
+  financial_result: "Financial Result",
+  presentation: "Investor Presentation",
   transcript: "Earnings Transcript",
   annual_report: "Annual Report",
 };
@@ -120,15 +120,43 @@ export function transformSearchResult(item: SearchResultItem) {
   // Transform sources to display names and create source-url pairs
   const sourceUrlPairs = (item.document_sources || [])
     .map((source, index) => {
-      const displayName = source.includes("BSE")
-        ? "BSE"
-        : source.includes("NSE")
-        ? "NSE"
-        : source;
       const url = item.document_urls?.[index] || "#";
+      let displayName = "Investor Relations";
+
+      if (url && url !== "#") {
+        if (url.includes("bseindia.com")) {
+          displayName = "BSE";
+        } else if (url.includes("nseindia.com")) {
+          displayName = "NSE";
+        }
+      }
+
       return { source: displayName, url };
     })
-    .filter((pair) => !pair.source.includes("SCREENER_IN"));
+    .filter((pair) => pair.url && pair.url !== "#");
+
+  // Ensure we have at least one valid source URL pair
+  if (sourceUrlPairs.length === 0 && item.document_urls?.[0]) {
+    sourceUrlPairs.push({
+      source: "Source",
+      url: item.document_urls[0],
+    });
+  }
+
+  // If still no source URL pairs but we have document_urls, use the first one
+  if (
+    sourceUrlPairs.length === 0 &&
+    item.document_urls &&
+    item.document_urls.length > 0
+  ) {
+    const firstValidUrl = item.document_urls.find((url) => url && url !== "#");
+    if (firstValidUrl) {
+      sourceUrlPairs.push({
+        source: "Document",
+        url: firstValidUrl,
+      });
+    }
+  }
 
   // Helper function to clean "None" values
   const cleanValue = (value: string | undefined | null) => {

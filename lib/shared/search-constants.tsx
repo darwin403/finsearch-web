@@ -59,8 +59,8 @@ export const ADVANCED_SEARCH_EXAMPLES = [
 ];
 
 export const DOCUMENT_TYPE_MAPPING: Record<string, string> = {
-  financial_result: "Financial Results",
-  presentation: "Investor Presentations",
+  financial_result: "Financial Result",
+  presentation: "Investor Presentation",
   transcript: "Earnings Transcript",
   annual_report: "Annual Report",
 };
