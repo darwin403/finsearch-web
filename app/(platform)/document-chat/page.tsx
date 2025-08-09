@@ -47,6 +47,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Label } from "@/components/ui/label";
 import {
@@ -56,6 +62,7 @@ import {
   type SearchFilters,
 } from "@/lib/api/search";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import Image from "next/image";
 
 const DOC_LIMIT = 5;
 const TOKEN_LIMIT = 100000;
@@ -253,6 +260,16 @@ function DocumentItem({
           onClick={onToggle}
         >
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+            {doc.logoid && (
+              <div className="relative h-8 w-8 overflow-hidden rounded-md border bg-slate-100 flex-shrink-0">
+                <Image
+                  src={`https://s3-symbol-logo.tradingview.com/${doc.logoid}--big.svg`}
+                  alt={doc.company_name}
+                  fill
+                  className="object-contain p-1"
+                />
+              </div>
+            )}
             <span className="font-semibold text-sm text-gray-900 truncate">
               {doc.symbol}
             </span>
@@ -272,6 +289,16 @@ function DocumentItem({
               <span className="text-xs text-gray-600 font-medium truncate">
                 {doc.document_type}
               </span>
+            )}
+            {doc.pdf_total_pages && (
+              <>
+                <span className="hidden sm:inline text-xs text-gray-500">
+                  •
+                </span>
+                <span className="text-xs text-gray-500 font-medium truncate">
+                  {doc.pdf_total_pages} pages
+                </span>
+              </>
             )}
             <span className="hidden sm:inline text-xs text-gray-500">•</span>
             {doc.highlight && (
@@ -295,11 +322,29 @@ function DocumentItem({
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <Calendar className="h-3 w-3" />
-            <span className="truncate">
-              {doc.disclosure_date
-                ? new Date(doc.disclosure_date).toLocaleDateString("en-IN")
-                : "N/A"}
-            </span>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="truncate">
+                    {doc.disclosure_date
+                      ? new Date(doc.disclosure_date).toLocaleDateString(
+                          "en-IN"
+                        )
+                      : "N/A"}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Disclosed on:{" "}
+                    {doc.disclosure_date
+                      ? new Date(doc.disclosure_date).toLocaleDateString(
+                          "en-IN"
+                        )
+                      : "N/A"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <Checkbox
             checked={isSelected}
@@ -335,10 +380,19 @@ function DocumentPickerDialog({
     dateTo: parseAsIsoDate,
   });
 
+  // Local state for search input to prevent lag
+  const [searchInput, setSearchInput] = useState(urlState.q);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [pendingSearch, setPendingSearch] = useState(false);
+
+  // Sync local search input with URL state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSearchInput(urlState.q);
+    }
+  }, [open, urlState.q]);
 
   const aggregations = useMemo(
     () => ({
@@ -406,13 +460,19 @@ function DocumentPickerDialog({
     urlState.marketCaps,
     urlState.dateFrom,
     urlState.dateTo,
+    urlState.q, // Include URL state q for filter-based searches
   ]);
 
-  const handleSearch = () => {
-    performSearch();
+  const handleSearch = async () => {
+    // Update URL state with the local search input
+    await setUrlState({ q: searchInput });
+    // Perform search with the input value
+    performSearch(searchInput);
   };
 
   const handleExampleSelect = async (example: string) => {
+    // Update local input state
+    setSearchInput(example);
     // Update the query state
     await setUrlState({ q: example });
     // Set pending search flag to prevent duplicate searches
@@ -460,8 +520,8 @@ function DocumentPickerDialog({
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder='"customer acquisition" OR "churn"'
-                    value={urlState.q}
-                    onChange={(e) => setUrlState({ q: e.target.value })}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     className="pl-10 pr-10 h-10"
                   />
@@ -566,6 +626,7 @@ function DocumentPickerDialog({
                         dateFrom: null,
                         dateTo: null,
                       });
+                      setSearchInput(""); // Also reset local search input
                       setResetKey((prev) => prev + 1);
                     }}
                     className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"

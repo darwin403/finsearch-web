@@ -178,6 +178,7 @@ export function transformSearchResult(item: SearchResultItem) {
     industry,
     market_cap,
     document_type: getDocumentTypeDisplay(item.document_type),
+    pdf_total_pages: item.pdf_total_pages,
     sourceUrlPairs,
     disclosure_date: item.exchange_ann_date,
     category:
