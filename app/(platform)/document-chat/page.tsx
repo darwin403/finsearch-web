@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   useQueryStates,
   parseAsString,
@@ -8,24 +8,20 @@ import {
   parseAsIsoDate,
 } from "nuqs";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Building2,
   Calendar,
   FileText,
-  X,
   Search,
   ChevronsUpDown,
   TrendingUp,
   Factory,
+  Send,
+  MessageSquare,
+  Eye,
+  Clipboard,
+  Plus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,12 +43,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,6 +53,12 @@ import {
 } from "@/lib/api/search";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
+import { useToast } from "@/components/ui/use-toast";
 
 const DOC_LIMIT = 5;
 const TOKEN_LIMIT = 100000;
@@ -243,10 +239,12 @@ function DocumentItem({
   doc,
   isSelected,
   onToggle,
+  onView,
 }: {
   doc: ExchangeDoc;
   isSelected: boolean;
   onToggle: () => void;
+  onView: () => void;
 }) {
   return (
     <div
@@ -254,19 +252,16 @@ function DocumentItem({
         isSelected ? "bg-blue-50 border-blue-200" : "hover:bg-gray-50"
       }`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div
-          className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0 cursor-pointer"
-          onClick={onToggle}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
             {doc.logoid && (
-              <div className="relative h-8 w-8 overflow-hidden rounded-md border bg-slate-100 flex-shrink-0">
+              <div className="relative h-6 w-6 overflow-hidden rounded-md border bg-slate-100 flex-shrink-0">
                 <Image
                   src={`https://s3-symbol-logo.tradingview.com/${doc.logoid}--big.svg`}
                   alt={doc.company_name}
                   fill
-                  className="object-contain p-1"
+                  className="object-contain p-0.5"
                 />
               </div>
             )}
@@ -276,80 +271,416 @@ function DocumentItem({
             <span className="hidden sm:inline text-xs text-gray-500">•</span>
             {doc.sourceUrlPairs?.[0]?.url &&
             doc.sourceUrlPairs[0].url !== "#" ? (
-              <a
-                href={doc.sourceUrlPairs[0].url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 underline font-medium truncate"
-                onClick={(e) => e.stopPropagation()}
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800 underline font-medium truncate cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView();
+                }}
               >
                 {doc.document_type}
-              </a>
+              </button>
             ) : (
               <span className="text-xs text-gray-600 font-medium truncate">
                 {doc.document_type}
               </span>
             )}
-            {doc.pdf_total_pages && (
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 text-xs text-gray-500">
+              <Calendar className="h-3 w-3" />
+              <span className="truncate">
+                {doc.disclosure_date
+                  ? new Date(doc.disclosure_date).toLocaleDateString("en-IN")
+                  : "N/A"}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onView}
+              className="h-6 w-6 p-0"
+            >
+              <Eye className="h-3 w-3" />
+            </Button>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onToggle}
+              className="ml-2 shrink-0"
+            />
+          </div>
+        </div>
+
+        <div className="text-xs text-gray-600 space-y-1">
+          <div className="truncate">{doc.company_name}</div>
+          {doc.pdf_total_pages && (
+            <div className="flex items-center gap-2 text-gray-500">
+              <span className="hidden sm:inline text-xs text-gray-500">•</span>
+              <span className="text-xs text-gray-500 font-medium truncate">
+                {doc.pdf_total_pages} pages
+              </span>
+            </div>
+          )}
+        </div>
+
+        {doc.highlight && (
+          <div className="text-xs text-gray-600 max-w-full sm:max-w-xs truncate">
+            {doc.highlight.split(/<em>(.*?)<\/em>/).map((part, index) =>
+              index % 2 === 1 ? (
+                <span
+                  key={index}
+                  className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
+                >
+                  {part}
+                </span>
+              ) : (
+                part
+              )
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// PDF Viewer Component
+function PDFViewer({ selectedDoc }: { selectedDoc: ExchangeDoc | null }) {
+  if (!selectedDoc) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+        <div className="text-center text-gray-500">
+          <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No Document Selected</p>
+          <p className="text-sm">
+            Select a document from the left panel to view
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      {/* PDF Content with overlapping header */}
+      <div className="flex-1 bg-gray-100 relative">
+        {selectedDoc.sourceUrlPairs?.[0]?.url &&
+        selectedDoc.sourceUrlPairs[0].url !== "#" ? (
+          <div className="h-full bg-white border rounded-lg shadow-lg overflow-hidden">
+            <iframe
+              src={selectedDoc.sourceUrlPairs[0].url}
+              className="w-full h-full border-0"
+              title={`${selectedDoc.document_type} - ${selectedDoc.symbol}`}
+            />
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center bg-white border rounded-lg shadow-lg">
+            <div className="text-center text-gray-500">
+              <FileText className="h-24 w-24 mx-auto mb-6 text-gray-300" />
+              <h4 className="text-xl font-semibold text-gray-700 mb-2">
+                {selectedDoc.document_type} - {selectedDoc.symbol}
+              </h4>
+              <p className="text-gray-500 mb-6">
+                PDF viewer for {selectedDoc.company_name}
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">
+                  No PDF URL available for this document.
+                  <br />
+                  The document content may be available through other means.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Overlapping Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+          <div className="px-4 py-2">
+            <div className="flex items-center gap-3">
+              {selectedDoc.logoid && (
+                <div className="relative h-6 w-6 overflow-hidden rounded-md border bg-slate-100">
+                  <Image
+                    src={`https://s3-symbol-logo.tradingview.com/${selectedDoc.logoid}--big.svg`}
+                    alt={selectedDoc.company_name}
+                    fill
+                    className="object-contain p-0.5"
+                  />
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm">
+                  {selectedDoc.symbol}
+                </h3>
+                <p className="text-xs text-gray-600">
+                  {selectedDoc.document_type}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Chat Messages Component
+const ChatMessages = React.memo(function ChatMessages({
+  messages,
+  status,
+  error,
+  bottomRef,
+  selectedDocs,
+}: {
+  messages: { id: string; content: string; role: string }[];
+  status: string;
+  error: unknown;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
+  selectedDocs: ExchangeDoc[];
+}) {
+  const { toast } = useToast();
+  const [hoveredId, setHoveredId] = React.useState<string | null>(null);
+  let errorMsg = "";
+  if (typeof error === "string") errorMsg = error;
+  else if (error instanceof Error) errorMsg = error.message;
+  else if (error) errorMsg = JSON.stringify(error);
+
+  return (
+    <div className="space-y-4">
+      {messages.length === 0 && !errorMsg && status !== "streaming" && (
+        <div className="flex items-start mb-2">
+          <div className="max-w-[85%] rounded-lg px-4 py-3 flex gap-2 items-start bg-gray-100 text-gray-900">
+            <span className="font-semibold text-gray-500">
+              <Image
+                src="/logo_brand.svg"
+                alt="Brand Logo"
+                width={24}
+                height={24}
+                className="h-6 w-6 object-contain inline-block align-middle rounded-full shadow-sm"
+              />
+            </span>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <p>
+                <strong>
+                  Chat with {selectedDocs.length} selected document
+                  {selectedDocs.length !== 1 ? "s" : ""}
+                </strong>
+                . Instantly ask questions and uncover key insights or details
+                from the selected documents.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {messages.map((message) => (
+        <div
+          key={message.id}
+          className="flex items-start mb-2 group"
+          onMouseEnter={() => setHoveredId(message.id)}
+          onMouseLeave={() => setHoveredId(null)}
+        >
+          <div
+            className={`max-w-[85%] rounded-lg px-4 py-3 flex gap-2 items-start ${
+              message.role === "user"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-900"
+            } relative pr-8`}
+          >
+            {message.role === "assistant" && hoveredId === message.id && (
               <>
-                <span className="hidden sm:inline text-xs text-gray-500">
-                  •
-                </span>
-                <span className="text-xs text-gray-500 font-medium truncate">
-                  {doc.pdf_total_pages} pages
-                </span>
+                {message.content.length > 1000 && (
+                  <button
+                    className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white rounded p-1 shadow border border-gray-200"
+                    onClick={() => {
+                      navigator.clipboard.writeText(message.content);
+                      toast({ description: "Copied to clipboard." });
+                    }}
+                    tabIndex={-1}
+                    type="button"
+                  >
+                    <Clipboard className="w-4 h-4 text-gray-500" />
+                  </button>
+                )}
+                <button
+                  className="absolute right-2 bottom-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white rounded p-1 shadow border border-gray-200"
+                  onClick={() => {
+                    navigator.clipboard.writeText(message.content);
+                    toast({ description: "Copied to clipboard." });
+                  }}
+                  tabIndex={-1}
+                  type="button"
+                >
+                  <Clipboard className="w-4 h-4 text-gray-500" />
+                </button>
               </>
             )}
-            <span className="hidden sm:inline text-xs text-gray-500">•</span>
-            {doc.highlight && (
-              <span className="text-xs text-gray-600 max-w-full sm:max-w-xs truncate">
-                {doc.highlight.split(/<em>(.*?)<\/em>/).map((part, index) =>
-                  index % 2 === 1 ? (
-                    <span
-                      key={index}
-                      className="bg-amber-100 px-1.5 py-0.5 rounded-md border border-amber-400/50 text-amber-900 font-medium"
-                    >
-                      {part}
-                    </span>
-                  ) : (
-                    part
-                  )
-                )}
-              </span>
+            <span
+              className={`font-semibold ${
+                message.role === "user" ? "text-blue-200" : "text-gray-500"
+              }`}
+            >
+              {message.role === "assistant" && (
+                <Image
+                  src="/logo_brand.svg"
+                  alt="Brand Logo"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 min-w-[1.25rem] min-h-[1.25rem] object-contain inline-block align-top rounded-full shadow-sm"
+                />
+              )}
+              {message.role === "user" && "Q:"}
+            </span>
+            {message.role === "assistant" ? (
+              <div className="relative w-full">
+                <div className="text-sm leading-relaxed">{message.content}</div>
+              </div>
+            ) : (
+              <p className="text-sm leading-relaxed">{message.content}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <Calendar className="h-3 w-3" />
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="truncate">
-                    {doc.disclosure_date
-                      ? new Date(doc.disclosure_date).toLocaleDateString(
-                          "en-IN"
-                        )
-                      : "N/A"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Disclosed on:{" "}
-                    {doc.disclosure_date
-                      ? new Date(doc.disclosure_date).toLocaleDateString(
-                          "en-IN"
-                        )
-                      : "N/A"}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+      ))}
+      {(status === "submitted" || status === "streaming") &&
+        (messages.length === 0 ||
+          messages[messages.length - 1]?.role === "user") && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900 opacity-70 animate-pulse">
+              <p className="text-sm leading-relaxed">Generating answer...</p>
+            </div>
           </div>
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={onToggle}
-            className="ml-2 shrink-0"
+        )}
+      {errorMsg && <div className="text-red-500 text-sm">{errorMsg}</div>}
+      <div ref={bottomRef} />
+    </div>
+  );
+});
+
+// Chat Input Component
+const ChatInput = React.memo(function ChatInput({
+  input,
+  handleInputChange,
+  handleSubmit,
+  status,
+}: {
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (e: React.FormEvent) => void;
+  status: string;
+}) {
+  return (
+    <form className="flex gap-3" onSubmit={handleSubmit}>
+      <Input
+        value={input}
+        onChange={handleInputChange}
+        placeholder="Ask about your documents..."
+        className="flex-1 border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        disabled={status === "streaming"}
+      />
+      <Button
+        type="submit"
+        disabled={!input.trim() || status === "streaming"}
+        className="bg-blue-600 hover:bg-blue-700 px-4"
+      >
+        <Send className="h-4 w-4" />
+      </Button>
+    </form>
+  );
+});
+
+// Chat Interface Component
+function ChatInterface({ selectedDocs }: { selectedDocs: ExchangeDoc[] }) {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<
+    { id: string; content: string; role: string }[]
+  >([]);
+  const [status, setStatus] = useState("idle");
+  const [error] = useState<unknown>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const newMessage = {
+      id: Date.now().toString(),
+      content: input,
+      role: "user" as const,
+    };
+
+    setMessages((prev) => [...prev, newMessage]);
+    setInput("");
+    setStatus("submitted");
+
+    // Simulate AI response
+    setTimeout(() => {
+      const aiResponse = {
+        id: (Date.now() + 1).toString(),
+        content: `I've analyzed the ${selectedDocs.length} selected document${
+          selectedDocs.length !== 1 ? "s" : ""
+        }. Based on your question "${input}", here are the key insights...`,
+        role: "assistant" as const,
+      };
+      setMessages((prev) => [...prev, aiResponse]);
+      setStatus("idle");
+    }, 2000);
+  };
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  return (
+    <div className="h-full flex flex-col bg-white border-l">
+      {/* Header with selectors */}
+      <div className="p-4 border-b bg-gray-50/50">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-blue-600" />
+              <span className="font-semibold text-sm">Chat Interface</span>
+            </div>
+          </div>
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1 text-gray-500 hover:text-blue-600"
+              onClick={() => setMessages([])}
+            >
+              <Plus className="w-4 h-4" />
+              New Chat
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col">
+        <ScrollArea className="flex-1 min-h-0 p-6">
+          <ChatMessages
+            messages={messages}
+            status={status}
+            error={error}
+            bottomRef={bottomRef}
+            selectedDocs={selectedDocs}
+          />
+        </ScrollArea>
+        <div className="p-6 border-t relative">
+          <span className="absolute -top-7 left-1/2 -translate-x-1/2 pt-2 text-xs text-gray-400 whitespace-nowrap select-none">
+            {selectedDocs.length > 0
+              ? `${selectedDocs.length} document${
+                  selectedDocs.length !== 1 ? "s" : ""
+                } selected`
+              : "No documents selected"}
+          </span>
+          <ChatInput
+            input={input}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleSubmit}
+            status={status}
           />
         </div>
       </div>
@@ -357,18 +688,17 @@ function DocumentItem({
   );
 }
 
-function DocumentPickerDialog({
-  open,
-  onOpenChange,
+// Document Selection Panel
+function DocumentSelectionPanel({
   selectedIds,
   onChange,
   onDocumentsLoaded,
+  onViewDocument,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   onDocumentsLoaded: (docMap: Record<string, ExchangeDoc>) => void;
+  onViewDocument: (doc: ExchangeDoc) => void;
 }) {
   const [urlState, setUrlState] = useQueryStates({
     q: parseAsString.withDefault(""),
@@ -380,19 +710,15 @@ function DocumentPickerDialog({
     dateTo: parseAsIsoDate,
   });
 
-  // Local state for search input to prevent lag
   const [searchInput, setSearchInput] = useState(urlState.q);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [pendingSearch, setPendingSearch] = useState(false);
 
-  // Sync local search input with URL state when dialog opens
   useEffect(() => {
-    if (open) {
-      setSearchInput(urlState.q);
-    }
-  }, [open, urlState.q]);
+    setSearchInput(urlState.q);
+  }, [urlState.q]);
 
   const aggregations = useMemo(
     () => ({
@@ -449,35 +775,28 @@ function DocumentPickerDialog({
   };
 
   useEffect(() => {
-    if (open && !pendingSearch) {
+    if (!pendingSearch) {
       performSearch();
     }
   }, [
-    open,
     urlState.companies,
     urlState.documentTypes,
     urlState.industries,
     urlState.marketCaps,
     urlState.dateFrom,
     urlState.dateTo,
-    urlState.q, // Include URL state q for filter-based searches
+    urlState.q,
   ]);
 
   const handleSearch = async () => {
-    // Update URL state with the local search input
     await setUrlState({ q: searchInput });
-    // Perform search with the input value
     performSearch(searchInput);
   };
 
   const handleExampleSelect = async (example: string) => {
-    // Update local input state
     setSearchInput(example);
-    // Update the query state
     await setUrlState({ q: example });
-    // Set pending search flag to prevent duplicate searches
     setPendingSearch(true);
-    // Perform search with the new query directly
     performSearch(example);
   };
 
@@ -502,337 +821,264 @@ function DocumentPickerDialog({
     selectedIds.length * TOKENS_PER_DOC > TOKEN_LIMIT;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden">
-        <DialogHeader className="pb-4">
-          <DialogTitle>Select Documents</DialogTitle>
-        </DialogHeader>
+    <div className="h-full flex flex-col bg-white overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b bg-gray-50 flex-shrink-0">
+        <div className="mb-3">
+          <h3 className="font-semibold text-gray-900">Document Analysis</h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Select documents, view PDFs, and chat with AI for analysis
+          </p>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">{selectedIds.length} selected</span>
+          <Button
+            variant="link"
+            size="sm"
+            className="text-blue-600 hover:text-blue-700 underline p-0 h-auto text-xs"
+            onClick={toggleAll}
+          >
+            {selectedIds.length === documents.length ? "Clear" : "Select All"}
+          </Button>
+        </div>
+      </div>
 
-        <div className="flex flex-col h-full space-y-4 overflow-hidden">
-          {/* Search and Date Range */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-3 space-y-2">
-              <Label className="block text-xs font-medium text-gray-700">
-                Filter Documents by Keyword
-              </Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder='"customer acquisition" OR "churn"'
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="pl-10 pr-10 h-10"
-                  />
-                  <AdvancedSearchExamplesDialog
-                    onExampleSelect={handleExampleSelect}
-                  >
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 cursor-pointer hover:text-gray-600">
-                      Advanced examples
-                    </span>
-                  </AdvancedSearchExamplesDialog>
-                </div>
-                <Button
-                  onClick={handleSearch}
-                  size="sm"
-                  className="shrink-0 h-10"
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="block text-xs font-medium text-gray-700">
-                Disclosure Date
-              </Label>
-              <DateRangePicker
-                key={resetKey}
-                date={{
-                  from: urlState.dateFrom || undefined,
-                  to: urlState.dateTo || undefined,
-                }}
-                onDateChange={({ from, to }) =>
-                  setUrlState({ dateFrom: from || null, dateTo: to || null })
-                }
+      {/* Search and Filters */}
+      <div className="p-4 space-y-4 border-b flex-shrink-0">
+        <div className="space-y-2">
+          <Label className="block text-xs font-medium text-gray-700">
+            Filter Documents by Keyword
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder='"customer acquisition" OR "churn"'
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="pl-10 pr-10 h-10"
               />
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <FilterPopover
-              label="Select Companies"
-              selectedItems={urlState.companies}
-              items={aggregations.companies}
-              onSelectionChange={(companies) => setUrlState({ companies })}
-              searchable
-              multiSelectLabel="companies"
-              icon={Building2}
-            />
-            <FilterPopover
-              label="Select Document Types"
-              selectedItems={urlState.documentTypes}
-              items={aggregations.types}
-              onSelectionChange={(documentTypes) =>
-                setUrlState({ documentTypes })
-              }
-              labelMapper={DOCUMENT_TYPE_MAPPING}
-              multiSelectLabel="types"
-              icon={FileText}
-            />
-            <FilterPopover
-              label="Select Industries"
-              selectedItems={urlState.industries}
-              items={aggregations.industries}
-              onSelectionChange={(industries) => setUrlState({ industries })}
-              searchable
-              multiSelectLabel="industries"
-              icon={Factory}
-            />
-            <FilterPopover
-              label="Select Market Caps"
-              selectedItems={urlState.marketCaps}
-              items={aggregations.marketCaps}
-              onSelectionChange={(marketCaps) => setUrlState({ marketCaps })}
-              labelMapper={MARKET_CAP_LABEL_MAPPER}
-              multiSelectLabel="market caps"
-              icon={TrendingUp}
-            />
-          </div>
-
-          {/* Document List */}
-          <div className="border-slate-200 pt-4 flex-1 min-h-0">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-gray-500">
-                Found {response?.total_count || 0} documents. Showing top{" "}
-                {PAGE_SIZE} results.
-                {/* Reset Filters - Only show when filters are active */}
-                {(urlState.q ||
-                  urlState.companies.length > 0 ||
-                  urlState.documentTypes.length > 0 ||
-                  urlState.industries.length > 0 ||
-                  urlState.marketCaps.length > 0 ||
-                  urlState.dateFrom ||
-                  urlState.dateTo) && (
-                  <span
-                    onClick={() => {
-                      setUrlState({
-                        q: "",
-                        companies: [],
-                        documentTypes: [],
-                        industries: [],
-                        marketCaps: [],
-                        dateFrom: null,
-                        dateTo: null,
-                      });
-                      setSearchInput(""); // Also reset local search input
-                      setResetKey((prev) => prev + 1);
-                    }}
-                    className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                  >
-                    Reset filters
-                  </span>
-                )}
-              </div>
-              <Button
-                variant="link"
-                size="xs"
-                className="text-blue-600 hover:text-blue-700 underline p-0 h-auto text-xs"
-                onClick={toggleAll}
+              <AdvancedSearchExamplesDialog
+                onExampleSelect={handleExampleSelect}
               >
-                {selectedIds.length === documents.length
-                  ? "Clear"
-                  : "Select All"}
-              </Button>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                  Advanced examples
+                </span>
+              </AdvancedSearchExamplesDialog>
             </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-sm flex-1 min-h-0">
-              <ScrollArea className="h-64">
-                <div className="p-3 space-y-2">
-                  {loading ? (
-                    <div className="text-center py-8 text-gray-500">
-                      Loading...
-                    </div>
-                  ) : documents.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      No documents found
-                    </div>
-                  ) : (
-                    documents.map((doc) => (
-                      <DocumentItem
-                        key={doc.id}
-                        doc={doc}
-                        isSelected={selectedIds.includes(doc.id)}
-                        onToggle={() => toggleDocument(doc.id)}
-                      />
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t">
-            <div className="text-xs space-y-1 sm:space-y-0 sm:space-x-4">
-              <span
-                className={
-                  selectedIds.length > DOC_LIMIT
-                    ? "text-red-500"
-                    : "text-gray-400"
-                }
-              >
-                Selected Documents: {selectedIds.length}/{DOC_LIMIT}
-              </span>
-              <span
-                className={
-                  selectedIds.length * TOKENS_PER_DOC > TOKEN_LIMIT
-                    ? "text-red-500"
-                    : "text-gray-400"
-                }
-              >
-                Total Tokens:{" "}
-                {new Intl.NumberFormat().format(
-                  selectedIds.length * TOKENS_PER_DOC
-                )}
-                /{new Intl.NumberFormat().format(TOKEN_LIMIT)}
-              </span>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1 sm:flex-none"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => onOpenChange(false)}
-                disabled={isOverLimit}
-                className="flex-1 sm:flex-none"
-              >
-                Done ({selectedIds.length} selected)
-              </Button>
-            </div>
+            <Button onClick={handleSearch} size="sm" className="shrink-0 h-10">
+              <Search className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="space-y-2">
+          <Label className="block text-xs font-medium text-gray-700">
+            Disclosure Date
+          </Label>
+          <DateRangePicker
+            key={resetKey}
+            date={{
+              from: urlState.dateFrom || undefined,
+              to: urlState.dateTo || undefined,
+            }}
+            onDateChange={({ from, to }) =>
+              setUrlState({ dateFrom: from || null, dateTo: to || null })
+            }
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <FilterPopover
+            label="Select Companies"
+            selectedItems={urlState.companies}
+            items={aggregations.companies}
+            onSelectionChange={(companies) => setUrlState({ companies })}
+            searchable
+            multiSelectLabel="companies"
+            icon={Building2}
+          />
+          <FilterPopover
+            label="Select Document Types"
+            selectedItems={urlState.documentTypes}
+            items={aggregations.types}
+            onSelectionChange={(documentTypes) =>
+              setUrlState({ documentTypes })
+            }
+            labelMapper={DOCUMENT_TYPE_MAPPING}
+            multiSelectLabel="types"
+            icon={FileText}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <FilterPopover
+            label="Select Industries"
+            selectedItems={urlState.industries}
+            items={aggregations.industries}
+            onSelectionChange={(industries) => setUrlState({ industries })}
+            searchable
+            multiSelectLabel="industries"
+            icon={Factory}
+          />
+          <FilterPopover
+            label="Select Market Caps"
+            selectedItems={urlState.marketCaps}
+            items={aggregations.marketCaps}
+            onSelectionChange={(marketCaps) => setUrlState({ marketCaps })}
+            labelMapper={MARKET_CAP_LABEL_MAPPER}
+            multiSelectLabel="market caps"
+            icon={TrendingUp}
+          />
+        </div>
+
+        {/* Reset Filters */}
+        {(urlState.q ||
+          urlState.companies.length > 0 ||
+          urlState.documentTypes.length > 0 ||
+          urlState.industries.length > 0 ||
+          urlState.marketCaps.length > 0 ||
+          urlState.dateFrom ||
+          urlState.dateTo) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setUrlState({
+                q: "",
+                companies: [],
+                documentTypes: [],
+                industries: [],
+                marketCaps: [],
+                dateFrom: null,
+                dateTo: null,
+              });
+              setSearchInput("");
+              setResetKey((prev) => prev + 1);
+            }}
+            className="w-full text-xs"
+          >
+            Reset All Filters
+          </Button>
+        )}
+      </div>
+
+      {/* Document List */}
+      <div className="flex-1 overflow-hidden">
+        <div className="p-3 border-b bg-gray-50">
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            <span>
+              Found {response?.total_count || 0} documents. Showing top{" "}
+              {PAGE_SIZE} results.
+            </span>
+            {isOverLimit && (
+              <span className="text-red-500">• Selection limit exceeded</span>
+            )}
+          </div>
+        </div>
+
+        <ScrollArea className="h-full">
+          <div className="p-3 space-y-2">
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            ) : documents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No documents found
+              </div>
+            ) : (
+              documents.map((doc) => (
+                <DocumentItem
+                  key={doc.id}
+                  doc={doc}
+                  isSelected={selectedIds.includes(doc.id)}
+                  onToggle={() => toggleDocument(doc.id)}
+                  onView={() => onViewDocument(doc)}
+                />
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Footer */}
+      <div className="p-3 border-t bg-gray-50 flex-shrink-0">
+        <div className="text-xs space-y-1">
+          <span
+            className={
+              selectedIds.length > DOC_LIMIT ? "text-red-500" : "text-gray-400"
+            }
+          >
+            Selected Documents: {selectedIds.length}/{DOC_LIMIT}
+          </span>
+          <span
+            className={
+              selectedIds.length * TOKENS_PER_DOC > TOKEN_LIMIT
+                ? "text-red-500"
+                : "text-gray-400"
+            }
+          >
+            Total Tokens:{" "}
+            {new Intl.NumberFormat().format(
+              selectedIds.length * TOKENS_PER_DOC
+            )}
+            /{new Intl.NumberFormat().format(TOKEN_LIMIT)}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function DocumentChatContent() {
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [selectedDocMap, setSelectedDocMap] = useState<
     Record<string, ExchangeDoc>
   >({});
+  const [viewingDoc, setViewingDoc] = useState<ExchangeDoc | null>(null);
 
   const selectedDocs = selectedDocIds
     .map((id) => selectedDocMap[id])
     .filter(Boolean);
 
-  const removeDocument = (docId: string) => {
-    setSelectedDocIds((prev) => prev.filter((id) => id !== docId));
-    setSelectedDocMap((prev) => {
-      const newMap = { ...prev };
-      delete newMap[docId];
-      return newMap;
-    });
+  const handleViewDocument = (doc: ExchangeDoc) => {
+    setViewingDoc(doc);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
-            Document Picker Demo
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600">
-            Select exchange documents for analysis
-          </p>
-        </div>
-
-        <Card className="p-4 sm:p-6">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h2 className="text-lg font-medium">Selected Documents</h2>
-              <Button
-                onClick={() => setDialogOpen(true)}
-                className="w-full sm:w-auto"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Add Documents
-                {selectedDocIds.length > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {selectedDocIds.length}
-                  </Badge>
-                )}
-              </Button>
-            </div>
-
-            {selectedDocs.length > 0 ? (
-              <div className="space-y-2">
-                {selectedDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0 flex-1">
-                      <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
-                      <span className="font-medium truncate">{doc.symbol}</span>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {doc.document_type}
-                      </Badge>
-                      <span className="text-sm text-gray-600 truncate">
-                        {doc.company_name}
-                      </span>
-                      <span className="text-xs text-gray-500 truncate">
-                        {doc.disclosure_date
-                          ? new Date(doc.disclosure_date).toLocaleDateString(
-                              "en-IN"
-                            )
-                          : "N/A"}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => removeDocument(doc.id)}
-                      className="p-1 hover:bg-gray-200 rounded self-end sm:self-auto"
-                    >
-                      <X className="h-4 w-4 text-gray-500" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p>No documents selected</p>
-                <p className="text-sm mt-1">
-                  Click &quot;Add Documents&quot; to get started
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <DocumentPickerDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          selectedIds={selectedDocIds}
-          onChange={setSelectedDocIds}
-          onDocumentsLoaded={setSelectedDocMap}
+    <div className="h-screen w-full overflow-hidden">
+      <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+        <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
+          <DocumentSelectionPanel
+            selectedIds={selectedDocIds}
+            onChange={setSelectedDocIds}
+            onDocumentsLoaded={setSelectedDocMap}
+            onViewDocument={handleViewDocument}
+          />
+        </ResizablePanel>
+        <ResizableHandle
+          withHandle
+          className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors"
         />
-      </div>
+        <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
+          <PDFViewer selectedDoc={viewingDoc} />
+        </ResizablePanel>
+        <ResizableHandle
+          withHandle
+          className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors"
+        />
+        <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
+          <ChatInterface selectedDocs={selectedDocs} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <div className="h-screen w-full overflow-hidden">
       <DocumentChatContent />
-    </Suspense>
+    </div>
   );
 }
